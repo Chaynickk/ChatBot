@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>Ollama SSE Test</title>
+  <style>
+    body { font-family: monospace; padding: 20px; background: #111; color: #0f0; }
+    #response { white-space: pre-wrap; }
+  </style>
+</head>
+<body>
+  <h2>Ответ от Ollama:</h2>
+  <div id="response">[ждём ответ...]</div>
+
+  <script>
+    const source = new EventSource("http://localhost:8000/chat/stream?message=Почему смысл жизни в 42&model=mistral");
+    const responseEl = document.getElementById("response");
+
+    source.onmessage = (event) => {
+      responseEl.textContent += event.data;
+    };
+
+    source.onerror = () => {
+      source.close();
+      responseEl.textContent += "\n[Поток завершён]";
+    };
+  </script>
+</body>
+</html>
