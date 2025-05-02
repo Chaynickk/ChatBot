@@ -16,45 +16,27 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-@app.get("/chat/stream")
-async def ollama_stream(message: str, model: str = "mistral"):
-    if not message:
-        return StreamingResponse(iter(["data: [Пустое сообщение]\n\n"]), media_type="text/event-stream")
+@app.post("/chat/stream")
+async def ollama_stream(request: Request):
+    body = await request.json()
+    model = body.get("model", "mistral")
+    messages = body.get("messages", [])
 
-    url = "http://localhost:11434/api/generate"
-    # data = {
-    #   "model": "mistral",
-    #   "prompt": "Объясни, как работает нейросеть.",
-    #   "system": "Ты — преподаватель по ИИ. Отвечай кратко, понятно, с примерами, избегая жаргона.",
-    #   "template": "default",
-    #   "context": [101, 202, 303],
-    #   "images": [
-    #     "iVBORw0KGgoAAAANSUhEUgAA..."
-    #   ],
-    #   "stream": true,
-    #   "format": "json",
-    #   "raw": false,
-    #   "options": {
-    #     "temperature": 0.7,
-    #     "top_p": 0.9,
-    #     "top_k": 40,
-    #     "repeat_penalty": 1.1,
-    #     "presence_penalty": 0.3,
-    #     "frequency_penalty": 0.3,
-    #     "stop": ["User:", "Assistant:"],
-    #     "seed": 42,
-    #     "num_predict": 300
-    #   }
-    # }
-    prompt = build_prompt(system="",question=message, project="", memory="", history="")
+    if not messages:
+        return StreamingResponse(iter(["data: [Пустое сообщение]\n\n"]), media_type="text/event-stream")
+    print(messages)
+    prompt = messages_to_prompt(messages=messages)
+
     data = {
         "model": model,
         "prompt": prompt,
         "stream": True,
-        "stop": ["User:", "Assistant:"]
+        "options": {
+            "stop": ["User:", "Assistant:"]
+        }
     }
 
-
+    url = "http://localhost:11434/api/generate"
 
     def event_stream():
         try:
@@ -72,21 +54,22 @@ async def ollama_stream(message: str, model: str = "mistral"):
 
     return StreamingResponse(event_stream(), media_type="text/event-stream")
 
-def build_prompt(system, project, memory, history, question):
-    return f"""
-[ИНСТРУКЦИЯ]
-{system}
+def messages_to_prompt(messages: list[dict]) -> str:
+    role_format = {
+        "system": "[ИНСТРУКЦИЯ]\n{content}\n\n",
+        "user": "User: {content}\n",
+        "assistant": "Assistant: {content}\n"
+    }
 
-[ПРОЕКТ]
-{project}
+    prompt = ""
+    for msg in messages:
+        role = msg.get("role")
+        content = msg.get("content", "").strip()
+        if role in role_format:
+            prompt += role_format[role].format(content=content)
+    prompt += "Assistant:"  # чтобы модель продолжила
+    return prompt
 
-[ПАМЯТЬ]
-{memory}
-
-[ЧАТ]
-{history}
-User: {question}
-Assistant:"""
 
 
 if __name__ == "__main__":
