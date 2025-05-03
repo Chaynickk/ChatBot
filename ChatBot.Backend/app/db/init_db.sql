@@ -4,8 +4,10 @@ CREATE TABLE users (
     username TEXT,
     full_name TEXT,
     is_plus BOOLEAN DEFAULT FALSE,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    custom_prompt TEXT
 );
+
 
 -- === Таблица проектов (workspace) ===
 CREATE TABLE projects (
@@ -40,8 +42,11 @@ CREATE TABLE chats (
     folder_id INTEGER REFERENCES folders(id) ON DELETE SET NULL,
     title TEXT,
     model_id INTEGER REFERENCES models(id),
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    parent_chat_id INTEGER REFERENCES chats(id) ON DELETE SET NULL,
+    parent_message_id INTEGER REFERENCES messages(id) ON DELETE SET NULL
 );
+
 
 -- === Таблица сообщений в чатах ===
 CREATE TABLE messages (
@@ -70,12 +75,11 @@ CREATE TABLE exports (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- === Таблица пользовательских промптов (если нужно) ===
-CREATE TABLE prompt_templates (
-    id SERIAL PRIMARY KEY,
-    title TEXT NOT NULL,
-    content TEXT NOT NULL,
-    is_global BOOLEAN DEFAULT FALSE,
-    user_id BIGINT REFERENCES users(telegram_id) ON DELETE CASCADE
-);
 
+-- === Долгосрочная память ===
+CREATE TABLE memories (
+    id SERIAL PRIMARY KEY,
+    user_id BIGINT REFERENCES users(telegram_id) ON DELETE CASCADE,
+    content TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);

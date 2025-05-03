@@ -7,7 +7,7 @@ async def test_create_folder():
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
         folder_data = {
-            "project_id": 1,  # или 0 — в зависимости от существующего проекта в БД
+            "project_id": 2,  # или 0 — в зависимости от существующего проекта в БД
             "name": "Test Folder"
         }
         response = await ac.post("/folders/", json=folder_data)
