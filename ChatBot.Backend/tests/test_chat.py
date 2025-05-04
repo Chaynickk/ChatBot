@@ -1,6 +1,8 @@
 import pytest
 from httpx import AsyncClient, ASGITransport
 from app.main import app
+from app.auth.telegram_auth import verify_telegram_token
+from fastapi.testclient import TestClient
 
 @pytest.mark.asyncio
 async def test_create_chat():
@@ -13,7 +15,7 @@ async def test_create_chat():
             "model_id": 1            # ID модели
         }
 
-        response = await ac.post("/chats/", json=chat_data)
+        response = await ac.post("/api/chats/", json=chat_data)
 
         assert response.status_code == 200, response.text
         data = response.json()
@@ -21,3 +23,4 @@ async def test_create_chat():
         assert data["title"] == "Test Chat"
         assert data["user_id"] == 0
         assert "created_at" in data
+

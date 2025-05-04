@@ -10,3 +10,4 @@ class User(Base):
     full_name = Column(String, nullable=True)
     is_plus = Column(Boolean, default=False)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    custom_prompt = Column(String, nullable=True)

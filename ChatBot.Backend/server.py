@@ -23,7 +23,7 @@ app.add_middleware(
 )
 
 # Путь к фронтенду
-FRONTEND_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "../YaY"))
+FRONTEND_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "../ChatBot.Frontend"))
 app.mount("/", StaticFiles(directory=FRONTEND_DIR, html=True), name="static")
 
 # Переменные окружения

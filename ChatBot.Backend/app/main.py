@@ -2,9 +2,9 @@ from app.routes import user, project, folder, chat, message, memory, custom_prom
 from app.models.user import Base
 from app.db.database import engine
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
+from fastapi import FastAPI, Security
+from app.auth.security import api_key_header
 from app.models.message import Message
-
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):

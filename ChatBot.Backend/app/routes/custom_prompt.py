@@ -12,12 +12,11 @@ async def update_custom_prompt(
     prompt: str,
     db: AsyncSession = Depends(get_async_session)
 ):
-    result = await db.execute(select(User).where(User.telegram_id == telegram_id))
-    user = result.scalar_one_or_none()
-
-    if not user:
-        raise HTTPException(status_code=404, detail="Пользователь не найден")
-
-    user.custom_prompt = prompt
+    result = await db.execute(
+        update(User)
+        .where(User.telegram_id == telegram_id)
+        .values(custom_prompt=prompt)
+        .execution_options(synchronize_session="fetch")
+    )
     await db.commit()
     return {"message": "Промпт успешно обновлён"}

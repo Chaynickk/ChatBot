@@ -15,7 +15,7 @@ async def register_project(project: ProjectCreate, db: AsyncSession = Depends(ge
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Ошибка при создании проекта: {e}")
 
-@router.get("/", response_model=list[ProjectOut])
+@router.get("/projects/", response_model=list[ProjectOut])
 async def get_projects(
     telegram_id: int = Query(...),
     db: AsyncSession = Depends(get_async_session)
