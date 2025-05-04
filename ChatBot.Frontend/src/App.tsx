@@ -1,19 +1,7 @@
-import { useEffect } from 'react';
+import { ChatScreen } from './components/ChatScreen';
 
 function App() {
-  useEffect(() => {
-    const tg = (window as any).Telegram?.WebApp;
-    if (tg) {
-      tg.ready(); // обязательно!
-      console.log("initDataUnsafe", tg.initDataUnsafe);
-    }
-  }, []);  
-
-  return (
-    <div style={{ padding: 20 }}>
-      <h1>Проверка Telegram WebApp</h1>
-    </div>
-  );
+  return <ChatScreen />;
 }
 
 export default App;
