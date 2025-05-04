@@ -2,9 +2,28 @@ import React, { useState, useRef, useEffect } from 'react';
 import './ChatScreen.css';
 
 const features = [
-  { label: 'Улучшить промпт' },
-  { label: 'Стиль' },
-  { label: 'Отчёт' },
+  { label: 'Улучшить промпт', icon: (
+    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+      <rect x="10.2" y="10.5" width="1.2" height="6" rx="0.6" transform="rotate(-35 10.2 10.5)" fill="#bfcfff"/>
+      <rect x="8.5" y="6.5" width="5" height="2" rx="1" fill="#fff" stroke="#bfcfff" strokeWidth="1"/>
+      <rect x="12.5" y="6.5" width="1.2" height="2" rx="0.6" fill="#bfcfff"/>
+      <g>
+        <path d="M15.5 5.5L15.8 6.1L16.5 6.3L15.8 6.5L15.5 7.1L15.2 6.5L14.5 6.3L15.2 6.1L15.5 5.5Z" stroke="#bfcfff" strokeWidth="0.5" fill="none"/>
+        <path d="M13.2 4.2L13.4 4.6L13.9 4.7L13.4 4.9L13.2 5.3L13 4.9L12.5 4.7L13 4.6L13.2 4.2Z" stroke="#bfcfff" strokeWidth="0.4" fill="none"/>
+        <path d="M16.5 8.2L16.7 8.5L17.1 8.6L16.7 8.7L16.5 9L16.3 8.7L15.9 8.6L16.3 8.5L16.5 8.2Z" stroke="#bfcfff" strokeWidth="0.3" fill="none"/>
+      </g>
+    </svg>
+  ) },
+  { label: 'Стиль', icon: (
+    <div style={{position: 'relative', width: 20, height: 20}}>
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" style={{position: 'absolute', left: 0, top: 0}}><circle cx="10" cy="10" r="8" fill="#bfcfff" opacity="0.2"/><path d="M7 10C7 11.5 8.5 13 10 13C11.5 13 13 11.5 13 10C13 8.5 11.5 7 10 7C8.5 7 7 8.5 7 10Z" fill="#bfcfff"/></svg>
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" style={{position: 'absolute', left: 4, top: 4}}><circle cx="10" cy="10" r="8" fill="#bfcfff" opacity="0.2"/><path d="M7 10C7 11.5 8.5 13 10 13C11.5 13 13 11.5 13 10C13 8.5 11.5 7 10 7C8.5 7 7 8.5 7 10Z" fill="#bfcfff"/></svg>
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" style={{position: 'absolute', left: 8, top: 8}}><circle cx="10" cy="10" r="8" fill="#bfcfff"/><path d="M7 10C7 11.5 8.5 13 10 13C11.5 13 13 11.5 13 10C13 8.5 11.5 7 10 7C8.5 7 7 8.5 7 10Z" fill="#181a20"/></svg>
+    </div>
+  ) },
+  { label: 'Отчёт', icon: (
+    <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><rect x="4" y="4" width="12" height="16" rx="1.5" stroke="#bfcfff" strokeWidth="1.5"/><path d="M7 8h6M7 11h6M7 14h3" stroke="#bfcfff" strokeWidth="1.5" strokeLinecap="round"/></svg>
+  ) },
 ];
 
 const attachments = [
@@ -136,6 +155,8 @@ export const ChatScreen: React.FC = () => {
     { name: 'Gemma3', desc: 'Gemini latest model' },
   ];
   const isMobileApp = useIsMobileWebApp();
+  const [wavesEnabled, setWavesEnabled] = useState(true);
+  const [showSettingsMenu, setShowSettingsMenu] = useState(false);
 
   useEffect(() => {
     if (textareaRef.current) {
@@ -189,6 +210,25 @@ export const ChatScreen: React.FC = () => {
 
   return (
     <div className={`chat-root ${isMobileApp ? 'mobile-app' : 'desktop-app'}`}>
+      {wavesEnabled && <div className="background-gradient" aria-hidden="true"></div>}
+      {wavesEnabled && (
+        <div className="background-waves" aria-hidden="true">
+          <svg width="100%" height="100%" viewBox="0 0 1440 900" preserveAspectRatio="none" style={{position: 'absolute', top: 0, left: 0, width: '120vw', height: '120vh', transform: 'translate(-10vw, -8vh) rotate(-18deg)'}}>
+            <defs>
+              <linearGradient id="waveGradient1" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0%" stopColor="#232bff" stopOpacity="0.18"/>
+                <stop offset="100%" stopColor="#646cff" stopOpacity="0.10"/>
+              </linearGradient>
+              <linearGradient id="waveGradient2" x1="0" y1="1" x2="1" y2="0">
+                <stop offset="0%" stopColor="#bfcfff" stopOpacity="0.08"/>
+                <stop offset="100%" stopColor="#232bff" stopOpacity="0.06"/>
+              </linearGradient>
+            </defs>
+            <path className="wave1" d="M0,700 Q360,600 720,700 T1440,700 V900 H0Z" fill="url(#waveGradient1)"/>
+            <path className="wave2" d="M0,800 Q480,750 960,800 T1440,800 V900 H0Z" fill="url(#waveGradient2)"/>
+          </svg>
+        </div>
+      )}
       {/* Sidebar */}
       <Sidebar
         open={sidebarOpen}
@@ -212,10 +252,13 @@ export const ChatScreen: React.FC = () => {
         <div style={{flex: 1, display: 'flex', justifyContent: 'center', position: 'relative'}}>
           <button
             className="chat-topbar__title"
-            style={{background: 'none', border: 'none', color: '#e6eaff', fontWeight: 600, fontSize: '1.2em', cursor: 'pointer', padding: 0}}
+            style={{background: 'none', border: 'none', color: '#e6eaff', fontWeight: 600, fontSize: '1.2em', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', gap: 8}}
             onClick={() => setModelMenuOpen(v => !v)}
           >
             {selectedModel.name}
+            <svg width="16" height="16" viewBox="0 0 20 20" fill="none" style={{marginLeft: 4, opacity: 0.7}}>
+              <path d="M6 8l4 4 4-4" stroke="#bfcfff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
           </button>
           {modelMenuOpen && (
             <div
@@ -251,27 +294,76 @@ export const ChatScreen: React.FC = () => {
                     cursor: 'pointer',
                     borderRadius: 12,
                     marginBottom: 2,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
                   }}
                   onClick={() => { setSelectedModel(m); setModelMenuOpen(false); }}
                 >
-                  <div style={{display: 'flex', alignItems: 'center', gap: 8}}>
-                    <span>{m.name}</span>
-                    {m.name === 'Gemma3' && (
-                      <span style={{color: '#ffe066', fontSize: 16, fontWeight: 500, marginLeft: 4}}>⚠️</span>
-                    )}
-                    {m.name === 'ChatLUX' && (
-                      <span style={{color: '#bfcfff', fontSize: 13, fontWeight: 500, marginLeft: 6, background: '#23242a', borderRadius: 8, padding: '2px 8px'}}>RESEARCH PREVIEW</span>
-                    )}
+                  <div style={{display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 2}}>
+                    <div style={{display: 'flex', alignItems: 'center', gap: 8}}>
+                      <span>{m.name}</span>
+                      {m.name === 'Gemma3' && (
+                        <span style={{color: '#ffe066', fontSize: 16, fontWeight: 500, marginLeft: 4}}>⚠️</span>
+                      )}
+                      {m.name === 'ChatLUX' && (
+                        <span style={{color: '#bfcfff', fontSize: 13, fontWeight: 500, marginLeft: 6, background: '#23242a', borderRadius: 8, padding: '2px 8px'}}>RESEARCH PREVIEW</span>
+                      )}
+                    </div>
+                    <div style={{fontSize: 14, color: '#bfcfff', fontWeight: 400, marginTop: 2}}>{m.desc}</div>
                   </div>
-                  <div style={{fontSize: 14, color: '#bfcfff', fontWeight: 400, marginTop: 2}}>{m.desc}</div>
+                  {selectedModel.name === m.name && (
+                    <svg width="18" height="18" viewBox="0 0 20 20" fill="none" style={{marginLeft: 12}}>
+                      <path d="M6 10.5l3 3 5-5.5" stroke="#bfcfff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                  )}
                 </button>
               ))}
             </div>
           )}
         </div>
-        <button className="chat-topbar__icon" title="Профиль/настройки">
-          <span role="img" aria-label="profile">⋮</span>
-        </button>
+        <div style={{position: 'relative'}}>
+          <button className="chat-topbar__icon" title="Профиль/настройки" onClick={() => setShowSettingsMenu(v => !v)}>
+            <span role="img" aria-label="profile">⋮</span>
+          </button>
+          {showSettingsMenu && (
+            <div style={{
+              position: 'absolute',
+              top: 'calc(100% + 8px)',
+              right: 0,
+              background: 'rgba(30,32,38,0.98)',
+              borderRadius: 14,
+              boxShadow: '0 6px 24px 0 #000a',
+              padding: '8px 0',
+              minWidth: 180,
+              zIndex: 2005,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 0,
+            }}>
+              <button
+                style={{
+                  background: 'none',
+                  color: '#e6eaff',
+                  textAlign: 'left',
+                  padding: '12px 22px',
+                  fontSize: 16,
+                  fontWeight: 500,
+                  cursor: 'pointer',
+                  border: 'none',
+                  borderRadius: 10,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 10,
+                }}
+                onClick={() => setWavesEnabled(v => !v)}
+              >
+                <span style={{flex: 1}}>Включить анимацию</span>
+                <input type="checkbox" checked={wavesEnabled} readOnly style={{accentColor: '#646cff', width: 18, height: 18}} />
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Центральная часть */}
@@ -344,7 +436,10 @@ export const ChatScreen: React.FC = () => {
             {showFeatures && (
               <div className="features-panel" ref={featuresPanelRef}>
                 {features.map(f => (
-                  <button key={f.label} className="feature-btn">{f.label}</button>
+                  <button key={f.label} className="feature-btn">
+                    <span style={{marginRight: 10, display: 'inline-flex', alignItems: 'center'}}>{f.icon}</span>
+                    {f.label}
+                  </button>
                 ))}
               </div>
             )}
