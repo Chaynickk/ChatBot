@@ -1,18 +1,16 @@
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy.future import select
 from app.models.user import User
 from app.schemas.user import UserCreate
 
-async def create_user(db: AsyncSession, user_data: UserCreate) -> User:
-    stmt = select(User).where(User.telegram_id == user_data.telegram_id)
-    result = await db.execute(stmt)
-    existing_user = result.scalar_one_or_none()
-
-    if existing_user:
-        return existing_user  # не создаём дубликат
-
-    new_user = User(**user_data.dict())
-    db.add(new_user)
+async def create_user(db: AsyncSession, user: UserCreate):
+    db_user = User(
+        telegram_id=user.telegram_id,
+        username=user.username,
+        full_name=user.full_name,
+        is_plus=user.is_plus
+    )
+    db.add(db_user)
     await db.commit()
-    await db.refresh(new_user)
-    return new_user
+    await db.refresh(db_user)
+    return db_user

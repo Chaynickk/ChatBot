@@ -1,17 +1,18 @@
-from pydantic import BaseModel, ConfigDict
-from typing import Optional
-from datetime import datetime
+from pydantic import BaseModel
 
 class UserCreate(BaseModel):
     telegram_id: int
-    username: Optional[str] = None
-    full_name: Optional[str] = None
+    username: str
+    full_name: str
+    is_plus: bool
 
 class UserOut(BaseModel):
     telegram_id: int
-    username: Optional[str]
-    full_name: Optional[str]
+    username: str
+    full_name: str
     is_plus: bool
-    created_at: datetime
-    model_config = ConfigDict(from_attributes=True)
+
+    class Config:
+        orm_mode = True
+
 
