@@ -1,0 +1,21 @@
+2025-05-06T16:37:30Z INF Thank you for trying Cloudflare Tunnel. Doing so, without a Cloudflare account, is a quick way to experiment and try it out. However, be aware that these account-less Tunnels have no uptime guarantee, are subject to the Cloudflare Online Services Terms of Use (https://www.cloudflare.com/website-terms/), and Cloudflare reserves the right to investigate your use of Tunnels for violations of such terms. If you intend to use Tunnels in production you should use a pre-created named tunnel by following: https://developers.cloudflare.com/cloudflare-one/connections/connect-apps
+2025-05-06T16:37:30Z INF Requesting new quick Tunnel on trycloudflare.com...
+2025-05-06T16:37:34Z INF +--------------------------------------------------------------------------------------------+
+2025-05-06T16:37:34Z INF |  Your quick Tunnel has been created! Visit it at (it may take some time to be reachable):  |
+2025-05-06T16:37:34Z INF |  https://optional-subject-affair-making.trycloudflare.com                                  |
+2025-05-06T16:37:34Z INF +--------------------------------------------------------------------------------------------+
+2025-05-06T16:37:34Z INF Cannot determine default configuration path. No file [config.yml config.yaml] in [~/.cloudflared ~/.cloudflare-warp ~/cloudflare-warp]
+2025-05-06T16:37:34Z INF Version 2025.4.2 (Checksum 63326694bc92dd1fab27bf05c8e97379dfcd55862a9ca5a22c0f7672f21b54f0)
+2025-05-06T16:37:34Z INF GOOS: windows, GOVersion: go1.22.5-devel-cf, GoArch: amd64
+2025-05-06T16:37:35Z INF Settings: map[ha-connections:1 protocol:quic url:http://localhost:5000]
+2025-05-06T16:37:35Z INF cloudflared will not automatically update on Windows systems.
+2025-05-06T16:37:35Z INF Generated Connector ID: 765bb2ec-967f-4962-8e03-7f5a098ff471
+2025-05-06T16:37:35Z INF Initial protocol quic
+2025-05-06T16:37:35Z INF ICMP proxy will use 192.168.0.100 as source for IPv4
+2025-05-06T16:37:35Z INF ICMP proxy will use fe80::6e78:929b:6a99:fbd1 in zone Подключение по локальной сети as source for IPv6
+2025-05-06T16:37:35Z INF cloudflared does not support loading the system root certificate pool on Windows. Please use --origin-ca-pool <PATH> to specify the path to the certificate pool
+2025-05-06T16:37:35Z INF ICMP proxy will use 192.168.0.100 as source for IPv4
+2025-05-06T16:37:35Z INF Using [CurveID(4588) CurveID(25497) CurveP256] as curve preferences connIndex=0 event=0 ip=198.41.200.113
+2025-05-06T16:37:35Z INF ICMP proxy will use fe80::6e78:929b:6a99:fbd1 in zone Подключение по локальной сети as source for IPv6
+2025-05-06T16:37:35Z INF Starting metrics server on 127.0.0.1:20241/metrics
+2025-05-06T16:37:36Z INF Registered tunnel connection connIndex=0 connection=7ce0c6ab-1a8c-436d-9aac-db200a19d737 event=0 ip=198.41.200.113 location=dme06 protocol=quic

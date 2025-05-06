@@ -1,5 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
 import './ChatScreen.css';
+import { apiService, SendMessageRequest, MessageStreamEvent } from '../services/api';
+import { useUser } from './UserContext';
+import { useChats } from './ChatsContext';
+import { useMessages } from './MessagesContext';
+import { useTelegram } from '../hooks/useTelegram';
 
 const features = [
   { label: 'Улучшить промпт', icon: (
@@ -137,9 +142,7 @@ export const ChatScreen: React.FC = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [projectModalOpen, setProjectModalOpen] = useState(false);
   const [projects, setProjects] = useState<string[]>(['Мой проект']);
-  const [chats, setChats] = useState<string[]>([]);
   const [selectedChat, setSelectedChat] = useState<number | null>(null);
-  const [chatCounter, setChatCounter] = useState(1);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const featuresPanelRef = useRef<HTMLDivElement>(null);
   const clipPanelRef = useRef<HTMLDivElement | null>(null);
@@ -157,6 +160,10 @@ export const ChatScreen: React.FC = () => {
   const isMobileApp = useIsMobileWebApp();
   const [wavesEnabled, setWavesEnabled] = useState(true);
   const [showSettingsMenu, setShowSettingsMenu] = useState(false);
+  const { user, login } = useUser();
+  const { chats: chatsContext, loadChats, selectChat, activeChatId } = useChats();
+  const { messages, loadMessages, sendMessage } = useMessages();
+  const { tg } = useTelegram();
 
   useEffect(() => {
     if (textareaRef.current) {
@@ -190,19 +197,32 @@ export const ChatScreen: React.FC = () => {
     return () => document.removeEventListener('mousedown', handleClick);
   }, [modelMenuOpen]);
 
-  const handleSend = () => {
-    if (!input.trim()) return;
-    // Если не выбран чат — создаём новый
-    if (selectedChat === null) {
-      setChats(prev => [...prev, `Чат ${chatCounter}`]);
-      setSelectedChat(chats.length);
-      setChatCounter(c => c + 1);
+  useEffect(() => {
+    // Получаем init_data из Telegram WebApp и логинимся
+    const initData = tg?.initData;
+    if (initData) {
+      login(initData).then(() => {
+        loadChats();
+      });
     }
+  }, [tg]);
+
+  useEffect(() => {
+    // Загружаем сообщения при выборе чата
+    if (activeChatId) {
+      loadMessages();
+    }
+  }, [activeChatId]);
+
+  const handleSend = async () => {
+    if (!input.trim()) return;
     setInput('');
     setLoading(true);
-    setTimeout(() => {
+    try {
+      await sendMessage(input);
+    } finally {
       setLoading(false);
-    }, 900);
+    }
   };
 
   const sendActive = !!input.trim();
@@ -234,10 +254,10 @@ export const ChatScreen: React.FC = () => {
         open={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
         projects={projects}
-        chats={chats}
+        chats={chatsContext.map(c => c.title)}
         onAddProject={() => setProjectModalOpen(true)}
-        onSelectChat={idx => { setSelectedChat(idx); setInput(''); }}
-        selectedChat={selectedChat}
+        onSelectChat={idx => { selectChat(chatsContext[idx]?.id); setInput(''); }}
+        selectedChat={chatsContext.findIndex(c => c.id === activeChatId)}
       />
       <ProjectModal
         open={projectModalOpen}
