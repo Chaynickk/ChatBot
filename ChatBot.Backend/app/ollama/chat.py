@@ -2,14 +2,14 @@ import requests
 from typing import AsyncGenerator, List, Dict
 import json
 
-OLLAMA_API_URL = "http://localhost:11434/api/chat"
+OLLAMA_API_URL = "http://localhost:11434/api/generate"
 
-async def get_ollama_response(messages: List[Dict[str, str]]) -> AsyncGenerator[str, None]:
+async def get_ollama_response(prompt: str) -> AsyncGenerator[str, None]:
     """
     Получает ответ от Ollama по чанкам.
     
     Args:
-        messages: Список сообщений для контекста
+        prompt: Строка с промптом для модели
         
     Yields:
         str: Чанки ответа от модели
@@ -19,9 +19,11 @@ async def get_ollama_response(messages: List[Dict[str, str]]) -> AsyncGenerator[
             OLLAMA_API_URL,
             json={
                 "model": "mistral",
-                "messages": messages,
+                "prompt": prompt,
                 "stream": True,
-                "max_token": 1
+                "options": {
+                    "stop": ["User:", "Assistant:"]
+                }
             },
             stream=True
         )
@@ -30,8 +32,8 @@ async def get_ollama_response(messages: List[Dict[str, str]]) -> AsyncGenerator[
             if line:
                 try:
                     chunk = json.loads(line.decode("utf-8"))
-                    if "message" in chunk and "content" in chunk["message"]:
-                        yield chunk["message"]["content"]
+                    if "response" in chunk:
+                        yield chunk["response"]
                 except Exception as e:
                     yield f"[Ошибка парсинга: {str(e)}]"
                     

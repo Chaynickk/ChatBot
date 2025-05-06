@@ -5,6 +5,7 @@ from app.schemas.message import MessageCreate, MessageOut
 from app.crud.message import create_message, get_chat_messages, get_message_by_id
 from app.crud.chat import get_chat_by_id
 from app.ollama.chat import get_ollama_response
+from app.ollama.prompt import get_chat_prompt
 from typing import List, Optional
 from fastapi.responses import StreamingResponse
 import json
@@ -42,23 +43,8 @@ async def send_message(
         ))
         user_message_out = MessageOut.from_orm(user_message)
         
-        # Получаем историю сообщений для контекста
-        chat_messages = await get_chat_messages(db, chat_id=message.chat_id, limit=10)
-        
-        # Формируем сообщения для Ollama
-        messages_for_ollama = [
-            {
-                "role": msg.role,
-                "content": msg.content
-            }
-            for msg in reversed(chat_messages)  # Переворачиваем, чтобы старые сообщения были первыми
-        ]
-        
-        # Добавляем системное сообщение
-        messages_for_ollama.insert(0, {
-            "role": "system",
-            "content": "Ты дружелюбный ассистент. Отвечай кратко и по делу."
-        })
+        # Получаем полный контекст чата и преобразуем его в промпт
+        prompt = await get_chat_prompt(db, chat.user_id, message.chat_id)
         
         async def event_stream():
             # Отправляем сообщение пользователя
@@ -76,7 +62,7 @@ async def send_message(
             
             # Получаем и отправляем ответ от Ollama по чанкам
             full_response = ""
-            async for chunk in get_ollama_response(messages_for_ollama):
+            async for chunk in get_ollama_response(prompt):
                 full_response += chunk
                 yield f"data: {json.dumps({'type': 'chunk', 'data': chunk})}\n\n"
             
