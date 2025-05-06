@@ -1,4 +1,4 @@
-from app.routes import user, project, folder, chat, message, memory, custom_prompt, delete
+from app.routes import user, project, folder, chat, message, memory, custom_prompt, delete, chat_settings, project_settings
 from app.models.user import Base
 from app.db.database import engine
 from contextlib import asynccontextmanager
@@ -22,6 +22,8 @@ app.include_router(message.router)
 app.include_router(memory.router)
 app.include_router(custom_prompt.router)
 app.include_router(delete.router)
+app.include_router(chat_settings.router)
+app.include_router(project_settings.router)
 
 @app.get("/ping")
 def ping():

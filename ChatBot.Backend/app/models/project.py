@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, TIMESTAMP
+from sqlalchemy import Column, Integer, String, ForeignKey, TIMESTAMP, Text
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from app.db.database import Base
@@ -10,6 +10,7 @@ class Project(Base):
     name = Column(String, nullable=False)
     user_id = Column(Integer, ForeignKey("users.telegram_id"))
     created_at = Column(TIMESTAMP, default=datetime.utcnow)
+    system_prompt = Column(Text, nullable=True)
 
     # Связь с пользователем
     user = relationship("User", backref="projects")

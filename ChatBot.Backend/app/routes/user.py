@@ -6,7 +6,7 @@ import traceback
 from app.db.dependencies import get_async_session
 from sqlalchemy.ext.asyncio import AsyncSession
 
-router = APIRouter()
+router = APIRouter(prefix="/users", tags=["users"])
 
 @router.post("/users/", response_model=UserOut)
 async def register_user(init_data: str, db: AsyncSession = Depends(get_async_session)):

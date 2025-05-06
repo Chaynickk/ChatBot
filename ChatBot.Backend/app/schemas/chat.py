@@ -15,3 +15,7 @@ class ChatOut(ChatCreate):
     id: int
     created_at: datetime
     model_config = ConfigDict(from_attributes=True)
+
+class ChatRename(BaseModel):
+    new_title: str
+    telegram_id: int

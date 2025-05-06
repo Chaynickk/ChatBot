@@ -8,7 +8,7 @@ from app.models.project import Project
 from app.models.folder import Folder
 from app.models.memory import Memory
 
-router = APIRouter()
+router = APIRouter(prefix="/delete", tags=["delete"])
 
 
 @router.delete("/chats/{chat_id}")

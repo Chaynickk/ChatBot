@@ -6,7 +6,7 @@ from app.models.user import User
 
 router = APIRouter(prefix="/users", tags=["users"])
 
-@router.put("/prompt")
+@router.patch("/prompt")
 async def update_custom_prompt(
     telegram_id: int,
     prompt: str,

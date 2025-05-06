@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, Security
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.dependencies import get_async_session
-from app.schemas.chat import ChatCreate, ChatOut
+from app.schemas.chat import ChatCreate, ChatOut, ChatRename
 from app.crud.chat import create_chat, get_chat_by_id
 from app.crud.user import get_user_by_telegram_id
 from app.auth.telegram_auth import verify_telegram_token
@@ -68,3 +68,25 @@ async def get_chats(
 
     result = await db.execute(query)
     return result.scalars().all()
+
+@router.patch("/chats/{chat_id}/rename", response_model=ChatOut)
+async def rename_chat(
+    chat_id: int,
+    rename_data: ChatRename,
+    db: AsyncSession = Depends(get_async_session)
+):
+    try:
+        chat = await get_chat_by_id(db, chat_id)
+        if not chat:
+            raise HTTPException(status_code=404, detail="Чат не найден")
+        
+        if chat.user_id != rename_data.telegram_id:
+            raise HTTPException(status_code=403, detail="Нет доступа к этому чату")
+        
+        chat.title = rename_data.new_title
+        await db.commit()
+        await db.refresh(chat)
+        return chat
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Ошибка при переименовании чата: {str(e)}")

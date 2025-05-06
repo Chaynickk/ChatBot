@@ -10,7 +10,7 @@ from fastapi.responses import StreamingResponse
 import json
 from datetime import datetime
 
-router = APIRouter()
+router = APIRouter(prefix="/messages", tags=["messages"])
 
 def serialize_message(message: MessageOut) -> dict:
     """Преобразует сообщение в словарь с сериализованным datetime"""
