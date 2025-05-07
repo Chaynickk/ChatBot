@@ -39,7 +39,12 @@ export const ChatsProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   };
 
   const createChat = async (title?: string, project_id?: number) => {
-    if (!user) return null;
+    if (!user) {
+      // Fallback: временный чат для офлайн-режима
+      setChats(prev => [{ id: 1, title: title || 'Локальный чат' }, ...prev]);
+      setActiveChatId(1);
+      return 1;
+    }
     const body: any = { user_id: user.telegram_id };
     if (title) body.title = title;
     if (project_id) body.project_id = project_id;

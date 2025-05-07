@@ -134,6 +134,34 @@ function useIsMobileWebApp() {
   return isMobileApp;
 }
 
+const Message: React.FC<{ message: any }> = ({ message }) => {
+  const isUser = message.role === 'user';
+  
+  return (
+    <div className={`message ${isUser ? 'user' : ''}`}>
+      {!isUser && (
+        <div className="message-avatar assistant">AI</div>
+      )}
+      <div className="message-content">
+        <div className="message-header">
+          <span className="message-sender">
+            {isUser ? 'Вы' : 'Ассистент'}
+          </span>
+          <span className="message-time">
+            {new Date(message.created_at).toLocaleTimeString()}
+          </span>
+        </div>
+        <div className="message-text">
+          {message.content}
+        </div>
+      </div>
+      {isUser && (
+        <div className="message-avatar user">U</div>
+      )}
+    </div>
+  );
+};
+
 export const ChatScreen: React.FC = () => {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
@@ -160,7 +188,7 @@ export const ChatScreen: React.FC = () => {
   const isMobileApp = useIsMobileWebApp();
   const [wavesEnabled, setWavesEnabled] = useState(true);
   const [showSettingsMenu, setShowSettingsMenu] = useState(false);
-  const { user, login } = useUser();
+  const { user, login, offlineMessage } = useUser();
   const { chats: chatsContext, loadChats, selectChat, activeChatId } = useChats();
   const { messages, loadMessages, sendMessage } = useMessages();
   const { tg } = useTelegram();
@@ -215,13 +243,26 @@ export const ChatScreen: React.FC = () => {
   }, [activeChatId]);
 
   const handleSend = async () => {
-    if (!input.trim()) return;
+    if (!input.trim() || loading) return;
+    
+    const messageText = input;
     setInput('');
     setLoading(true);
+    
     try {
-      await sendMessage(input);
+      await sendMessage(messageText);
+    } catch (error) {
+      console.error('Error sending message:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Обработчик нажатия Enter
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSend();
     }
   };
 
@@ -230,6 +271,23 @@ export const ChatScreen: React.FC = () => {
 
   return (
     <div className={`chat-root ${isMobileApp ? 'mobile-app' : 'desktop-app'}`}>
+      {offlineMessage && (
+        <div style={{
+          position: 'fixed',
+          top: 70,
+          left: '50%',
+          transform: 'translateX(-50%)',
+          background: '#23242a',
+          color: '#ffe066',
+          padding: '12px 32px',
+          borderRadius: 12,
+          fontWeight: 600,
+          zIndex: 2000,
+          boxShadow: '0 2px 12px #0008',
+        }}>
+          {offlineMessage}
+        </div>
+      )}
       {wavesEnabled && <div className="background-gradient" aria-hidden="true"></div>}
       {wavesEnabled && (
         <div className="background-waves" aria-hidden="true">
@@ -387,7 +445,7 @@ export const ChatScreen: React.FC = () => {
       </div>
 
       {/* Центральная часть */}
-      <div className="chat-center">
+      <div className={`chat-center ${messages.length > 0 ? 'chat-center--hidden' : ''}`}>
         <h2 className="chat-center__title">Чем я могу помочь?</h2>
         <div className="chat-quick-actions">
           <button className="chat-quick-action">
@@ -402,6 +460,28 @@ export const ChatScreen: React.FC = () => {
         </div>
       </div>
 
+      {/* Сообщения */}
+      {messages.length > 0 && (
+        <div className="messages-container">
+          {messages.map((message) => (
+            <Message key={message.id} message={message} />
+          ))}
+          
+          {loading && (
+            <div className="message">
+              <div className="message-avatar assistant">AI</div>
+              <div className="message-content">
+                <div className="loading-indicator">
+                  <div className="loading-dot"></div>
+                  <div className="loading-dot"></div>
+                  <div className="loading-dot"></div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Нижняя панель */}
       <div className="chat-bottom-bar">
         <div className="chat-bottom-bar__input-wrap">
@@ -411,7 +491,7 @@ export const ChatScreen: React.FC = () => {
             placeholder="Спросите что-нибудь"
             value={input}
             onChange={e => setInput(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), handleSend())}
+            onKeyDown={handleKeyDown}
             disabled={loading}
             rows={1}
             maxLength={1000}

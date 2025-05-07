@@ -12,6 +12,8 @@ interface UserContextType {
   initData: string | null;
   login: (initData: string) => Promise<void>;
   logout: () => void;
+  backendAvailable: boolean;
+  offlineMessage: string | null;
 }
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
@@ -25,18 +27,40 @@ export const useUser = () => {
 export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [initData, setInitData] = useState<string | null>(null);
+  const [backendAvailable, setBackendAvailable] = useState(true);
+  const [offlineMessage, setOfflineMessage] = useState<string | null>(null);
+
+  // Проверка доступности бэкенда
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch('/ping');
+        if (!res.ok) throw new Error();
+        setBackendAvailable(true);
+        setOfflineMessage(null);
+      } catch {
+        setBackendAvailable(false);
+        setOfflineMessage('Бэкенд недоступен. Включён офлайн-режим.');
+        // Fallback: временный пользователь
+        setUser({
+          telegram_id: 1,
+          username: 'local',
+          full_name: 'Local User',
+          is_plus: false,
+        });
+      }
+    })();
+  }, []);
 
   // login: проверяет или регистрирует пользователя
   const login = async (initData: string) => {
     setInitData(initData);
     try {
-      // Пробуем получить пользователя
       const res = await fetch(`/users/users/?init_data=${encodeURIComponent(initData)}`);
       if (res.ok) {
         const data = await res.json();
         setUser(data);
       } else {
-        // Если не найден — пробуем зарегистрировать
         const regRes = await fetch(`/users/users/?init_data=${encodeURIComponent(initData)}`, { method: 'POST' });
         if (regRes.ok) {
           const data = await regRes.json();
@@ -46,7 +70,14 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         }
       }
     } catch {
-      setUser(null);
+      setUser({
+        telegram_id: 1,
+        username: 'local',
+        full_name: 'Local User',
+        is_plus: false,
+      });
+      setOfflineMessage('Бэкенд недоступен. Включён офлайн-режим.');
+      setBackendAvailable(false);
     }
   };
 
@@ -56,7 +87,7 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   return (
-    <UserContext.Provider value={{ user, initData, login, logout }}>
+    <UserContext.Provider value={{ user, initData, login, logout, backendAvailable, offlineMessage }}>
       {children}
     </UserContext.Provider>
   );
