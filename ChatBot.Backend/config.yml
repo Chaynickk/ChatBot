@@ -1,0 +1,7 @@
+tunnel: 1480dc2f-a929-4d49-9d3e-35e9bfb36a2b
+credentials-file: C:\Users\User\.cloudflared\1480dc2f-a929-4d49-9d3e-35e9bfb36a2b.json
+
+ingress:
+  - hostname: api.chatlux.ru
+    service: http://localhost:8000
+  - service: http_status:404

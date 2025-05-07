@@ -1,26 +1,12 @@
 # Запуск cloudflared для бэка
-Write-Host "STARTING BACKEND CLOUDflared..."
-$backendProc = Start-Process -FilePath "C:\Users\User\AppData\Roaming\npm\cloudflared.cmd" -ArgumentList "tunnel --url http://localhost:5000 2>&1" -NoNewWindow -RedirectStandardOutput "backend_url.txt" -PassThru
+Write-Host "STARTING BACKEND CLOUDFLARED..."
+$backendProc = Start-Process -FilePath "C:\Users\User\AppData\Roaming\npm\cloudflared.cmd" -ArgumentList "tunnel run chatlux-tunnel" -NoNewWindow -PassThru
 
-# Ждём появления адреса
-$backendUrl = $null
-for ($i = 0; $i -lt 30; $i++) {
-    Start-Sleep -Seconds 1
-    if (Test-Path "backend_url.txt") {
-        $lines = Get-Content "backend_url.txt"
-        foreach ($line in $lines) {
-            if ($line -match "https://[a-zA-Z0-9.-]+\.trycloudflare\.com") {
-                $backendUrl = $Matches[0]
-                break
-            }
-        }
-    }
-    if ($backendUrl) { break }
-}
-if (-not $backendUrl) {
-    Write-Host "FAILED TO GET BACKEND URL FROM CLOUDFLARED."
-    exit 1
-}
+# Записываем URL бэкенда в .env
+Set-Content -Path ".env" -Value "PUBLIC_BACKEND_URL=https://api.chatlux.ru"
+
+# Выводим адрес бэкенда
+Write-Host "BACKEND URL: https://api.chatlux.ru"
 
 # Запуск cloudflared для фронта
 Write-Host "STARTING FRONTEND CLOUDflared..."
@@ -47,8 +33,8 @@ if (-not $frontendUrl) {
 }
 
 # Записываем оба адреса в .env
-Set-Content -Path ".env" -Value "PUBLIC_BACKEND_URL=$backendUrl`nPUBLIC_FRONTEND_URL=$frontendUrl"
+Set-Content -Path ".env" -Value "PUBLIC_BACKEND_URL=https://api.chatlux.ru`nPUBLIC_FRONTEND_URL=$frontendUrl"
 
 # Выводим только адреса с пометкой
-Write-Host "BACKEND URL: $backendUrl"
+Write-Host "BACKEND URL: https://api.chatlux.ru"
 Write-Host "FRONTEND URL: $frontendUrl"
