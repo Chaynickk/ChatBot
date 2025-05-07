@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, ReactNode } from 'react';
 import { useChats } from './ChatsContext';
 import { apiService, MessageStreamEvent, SendMessageRequest } from '../services/api';
+import { API_URL } from '../config';
 
 interface Message {
   id?: number;
@@ -30,7 +31,7 @@ export const MessagesProvider: React.FC<{ children: ReactNode }> = ({ children }
 
   const loadMessages = async () => {
     if (!activeChatId) return;
-    const res = await fetch(`/messages/messages/?chat_id=${activeChatId}`);
+    const res = await fetch(`${API_URL}/messages/messages/?chat_id=${activeChatId}`);
     if (res.ok) {
       const data = await res.json();
       setMessages(data);

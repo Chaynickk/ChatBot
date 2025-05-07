@@ -199,11 +199,19 @@ export const ChatScreen: React.FC = () => {
 
   useEffect(() => {
     // Получаем init_data из Telegram WebApp и логинимся
+    console.log('Telegram WebApp:', tg);
+    console.log('initData:', tg?.initData);
     const initData = tg?.initData;
     if (initData) {
+      console.log('Attempting to login with initData');
       login(initData).then(() => {
+        console.log('Login successful, loading chats');
         loadChats();
+      }).catch(error => {
+        console.error('Login failed:', error);
       });
+    } else {
+      console.warn('No initData available from Telegram WebApp');
     }
   }, [tg]);
 

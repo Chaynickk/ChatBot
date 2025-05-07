@@ -1,6 +1,6 @@
 # Запуск cloudflared для бэка
 Write-Host "STARTING BACKEND CLOUDflared..."
-$backendProc = Start-Process -FilePath "C:\Users\LevSu\AppData\Roaming\npm\cloudflared.cmd" -ArgumentList "tunnel --url http://localhost:5000 2>&1" -NoNewWindow -RedirectStandardOutput "backend_url.txt" -PassThru
+$backendProc = Start-Process -FilePath "C:\Users\User\AppData\Roaming\npm\cloudflared.cmd" -ArgumentList "tunnel --url http://localhost:5000 2>&1" -NoNewWindow -RedirectStandardOutput "backend_url.txt" -PassThru
 
 # Ждём появления адреса
 $backendUrl = $null
@@ -24,7 +24,7 @@ if (-not $backendUrl) {
 
 # Запуск cloudflared для фронта
 Write-Host "STARTING FRONTEND CLOUDflared..."
-$frontendProc = Start-Process -FilePath "C:\Users\LevSu\AppData\Roaming\npm\cloudflared.cmd" -ArgumentList "tunnel --url http://localhost:3000 2>&1" -NoNewWindow -RedirectStandardOutput "frontend_url.txt" -PassThru
+$frontendProc = Start-Process -FilePath "C:\Users\User\AppData\Roaming\npm\cloudflared.cmd" -ArgumentList "tunnel --url http://localhost:3000 2>&1" -NoNewWindow -RedirectStandardOutput "frontend_url.txt" -PassThru
 
 # Ждём появления адреса
 $frontendUrl = $null

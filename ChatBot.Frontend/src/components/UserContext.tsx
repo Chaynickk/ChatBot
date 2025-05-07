@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { API_URL } from '../config';
 
 interface User {
   telegram_id: number;
@@ -31,13 +32,18 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setInitData(initData);
     try {
       // Пробуем получить пользователя
-      const res = await fetch(`/users/users/?init_data=${encodeURIComponent(initData)}`);
+      const res = await fetch(`${API_URL}/users/users/?init_data=${encodeURIComponent(initData)}`);
       if (res.ok) {
         const data = await res.json();
         setUser(data);
       } else {
         // Если не найден — пробуем зарегистрировать
-        const regRes = await fetch(`/users/users/?init_data=${encodeURIComponent(initData)}`, { method: 'POST' });
+        const regRes = await fetch(`${API_URL}/users/users/?init_data=${encodeURIComponent(initData)}`, { 
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          }
+        });
         if (regRes.ok) {
           const data = await regRes.json();
           setUser(data);
@@ -45,7 +51,8 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           setUser(null);
         }
       }
-    } catch {
+    } catch (error) {
+      console.error('Login error:', error);
       setUser(null);
     }
   };

@@ -8,3 +8,4 @@ async def create_model(db: AsyncSession, model: ModelCreate):
     await db.commit()
     await db.refresh(new_model)
     return new_model
+
