@@ -7,10 +7,17 @@ from app.crud.user import get_user_by_telegram_id
 from app.auth.telegram_auth import verify_telegram_token
 from app.schemas.auth import TelegramAuth
 from app.auth.security import api_key_header
+from app.schemas.message import MessageCreate, MessageOut
+from app.crud.message import create_message
+from app.ollama.chat import get_ollama_response
+from app.ollama.prompt import get_chat_prompt
 import traceback
 from typing import List
 from sqlalchemy import select
 from app.models.chat import Chat
+from fastapi.responses import StreamingResponse
+import json
+from datetime import datetime
 
 router = APIRouter(prefix="/api", tags=["chats"])
 
@@ -90,3 +97,84 @@ async def rename_chat(
     except Exception as e:
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Ошибка при переименовании чата: {str(e)}")
+
+@router.post("/chats/branch/", response_model=ChatOut)
+async def create_chat_branch(
+    parent_chat_id: int,
+    parent_message_id: int,
+    user_message: str,
+    db: AsyncSession = Depends(get_async_session)
+):
+    try:
+        # Получаем родительский чат
+        parent_chat = await get_chat_by_id(db, parent_chat_id)
+        if not parent_chat:
+            raise HTTPException(status_code=404, detail="Родительский чат не найден")
+
+        # Создаем новый чат
+        new_chat = ChatCreate(
+            user_id=parent_chat.user_id,
+            project_id=parent_chat.project_id,
+            folder_id=parent_chat.folder_id,
+            model_id=parent_chat.model_id,
+            parent_chat_id=parent_chat_id,
+            parent_message_id=parent_message_id,
+            title=f"Ветка от чата {parent_chat_id}"
+        )
+        
+        # Сохраняем новый чат
+        chat = await create_chat(db, new_chat)
+        
+        # Создаем первое сообщение в новом чате
+        user_message_db = await create_message(db, MessageCreate(
+            chat_id=chat.id,
+            content=user_message,
+            role="user",
+            parent_id=parent_message_id
+        ))
+        user_message_out = MessageOut.from_orm(user_message_db)
+
+        # Получаем полный контекст чата и преобразуем его в промпт
+        prompt = await get_chat_prompt(db, chat.user_id, chat.id)
+
+        async def event_stream():
+            # Отправляем сообщение пользователя
+            yield f"data: {json.dumps({'type': 'user_message', 'data': serialize_message(user_message_out)})}\n\n"
+            
+            # Создаем сообщение ассистента
+            assistant_message = MessageCreate(
+                chat_id=chat.id,
+                content="",
+                role="assistant",
+                parent_id=parent_message_id
+            )
+            assistant_message_db = await create_message(db, assistant_message)
+            assistant_message_out = MessageOut.from_orm(assistant_message_db)
+            
+            # Получаем и отправляем ответ от Ollama по чанкам
+            full_response = ""
+            async for chunk in get_ollama_response(prompt):
+                full_response += chunk
+                yield f"data: {json.dumps({'type': 'chunk', 'data': chunk})}\n\n"
+            
+            # Обновляем сообщение ассистента полным ответом
+            assistant_message_db.content = full_response
+            await db.commit()
+            await db.refresh(assistant_message_db)
+            assistant_message_out = MessageOut.from_orm(assistant_message_db)
+            
+            # Отправляем финальное сообщение ассистента
+            yield f"data: {json.dumps({'type': 'assistant_message', 'data': serialize_message(assistant_message_out)})}\n\n"
+        
+        return StreamingResponse(event_stream(), media_type="text/event-stream")
+        
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Ошибка при создании ветки чата: {str(e)}")
+
+def serialize_message(message: MessageOut) -> dict:
+    """Преобразует сообщение в словарь с сериализованным datetime"""
+    data = message.dict()
+    if isinstance(data.get('created_at'), datetime):
+        data['created_at'] = data['created_at'].isoformat()
+    return data
