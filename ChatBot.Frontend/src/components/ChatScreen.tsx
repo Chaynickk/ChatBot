@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import './ChatScreen.css';
-import { apiService, SendMessageRequest, MessageStreamEvent } from '../services/api';
+import { apiService, SendMessageRequest, MessageStreamEvent, createProject } from '../services/api';
 import { useUser } from './UserContext';
 import { useChats } from './ChatsContext';
 import { useMessages } from './MessagesContext';
@@ -270,7 +270,16 @@ export const ChatScreen: React.FC = () => {
       <ProjectModal
         open={projectModalOpen}
         onClose={() => setProjectModalOpen(false)}
-        onCreate={name => { setProjects(prev => [...prev, name]); setProjectModalOpen(false); }}
+        onCreate={async name => {
+          try {
+            const userId = user ? user.telegram_id : 0;
+            const project = await apiService.createProject(name, userId);
+            setProjects(prev => [...prev, project.name]);
+            setProjectModalOpen(false);
+          } catch (e) {
+            alert('Ошибка при создании проекта');
+          }
+        }}
       />
       {/* Верхняя панель */}
       <div className="chat-topbar">

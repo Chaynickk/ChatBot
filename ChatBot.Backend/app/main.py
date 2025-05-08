@@ -70,7 +70,7 @@ app = FastAPI(lifespan=lifespan)
 # Настраиваем CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://chatlux.ru"],  # Только ваш фронтенд
+    allow_origins=["*"],  # Разрешить все источники (или укажи конкретные, если нужно)
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

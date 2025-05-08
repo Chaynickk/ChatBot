@@ -39,8 +39,7 @@ export const ChatsProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   };
 
   const createChat = async (title?: string, project_id?: number) => {
-    if (!user) return null;
-    const body: any = { user_id: user.telegram_id };
+    const body: any = { user_id: user ? user.telegram_id : 0 };
     if (title) body.title = title;
     if (project_id) body.project_id = project_id;
     const res = await fetch('/api/chats/', {

@@ -1,4 +1,31 @@
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+// @ts-ignore
+// eslint-disable-next-line
+interface ImportMeta {
+    env: {
+        VITE_API_URL?: string;
+        [key: string]: any;
+    };
+}
+
+function getBackendUrl(): string {
+    // Сначала пробуем из localStorage
+    const url = localStorage.getItem('backend_url');
+    if (url) return url;
+    // Если нет, пробуем из переменной окружения или дефолт
+    return (import.meta as any).env.VITE_API_URL || 'http://localhost:8000';
+}
+
+export function setBackendUrl(url: string) {
+    localStorage.setItem('backend_url', url);
+}
+
+export function clearBackendUrl() {
+    localStorage.removeItem('backend_url');
+}
+
+export function getSavedBackendUrl() {
+    return localStorage.getItem('backend_url');
+}
 
 export interface ChatResponse {
     response: string;
@@ -18,7 +45,7 @@ export type MessageStreamEvent =
 
 export const apiService = {
     async sendToGigaChat(message: string): Promise<ChatResponse> {
-        const response = await fetch(`${API_BASE_URL}/gigachat`, {
+        const response = await fetch(`${getBackendUrl()}/gigachat`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -34,7 +61,7 @@ export const apiService = {
     },
 
     async sendToYandexGPT(message: string): Promise<ReadableStream> {
-        const response = await fetch(`${API_BASE_URL}/chat/stream?message=${encodeURIComponent(message)}`);
+        const response = await fetch(`${getBackendUrl()}/chat/stream?message=${encodeURIComponent(message)}`);
         
         if (!response.ok) {
             throw new Error('Ошибка при отправке сообщения');
@@ -44,7 +71,7 @@ export const apiService = {
     },
 
     async sendToGPT4oMini(message: string): Promise<ChatResponse> {
-        const response = await fetch(`${API_BASE_URL}/gpt4omini`, {
+        const response = await fetch(`${getBackendUrl()}/gpt4omini`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -63,7 +90,7 @@ export const apiService = {
         body: SendMessageRequest,
         onEvent: (event: MessageStreamEvent) => void
     ) {
-        const response = await fetch(`${API_BASE_URL}/messages/messages/`, {
+        const response = await fetch(`${getBackendUrl()}/messages/messages/`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -91,5 +118,16 @@ export const apiService = {
                 }
             }
         }
+    },
+
+    async createProject(name: string, user_id: number = 0) {
+        const url = `${getBackendUrl()}/api/projects/`;
+        const res = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, user_id }),
+        });
+        if (!res.ok) throw new Error('Ошибка при создании проекта');
+        return res.json();
     }
 }; 

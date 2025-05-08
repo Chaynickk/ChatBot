@@ -1,9 +1,22 @@
+# Запуск FastAPI приложения
+Start-Process -NoNewWindow powershell -ArgumentList "cd $PSScriptRoot; uvicorn app.main:app --host 0.0.0.0 --port 8000"
+
 # Запуск cloudflared для бэка
 Write-Host "STARTING BACKEND CLOUDFLARED..."
-$backendProc = Start-Process -FilePath "C:\Users\User\AppData\Roaming\npm\cloudflared.cmd" -ArgumentList "tunnel run chatlux-tunnel" -NoNewWindow -PassThru
+$backendProc = Start-Process -FilePath "C:\Users\User\AppData\Roaming\npm\cloudflared.cmd" -ArgumentList "tunnel --config $PSScriptRoot\config.yml run chatlux-tunnel" -NoNewWindow -PassThru
 
-# Записываем URL бэкенда в .env
-Set-Content -Path ".env" -Value "PUBLIC_BACKEND_URL=https://api.chatlux.ru"
+# Проверяем существование .env файла
+if (-not (Test-Path ".env")) {
+    # Если файл не существует, создаем его
+    Set-Content -Path ".env" -Value "PUBLIC_BACKEND_URL=https://api.chatlux.ru"
+} else {
+    # Если файл существует, проверяем наличие PUBLIC_BACKEND_URL
+    $envContent = Get-Content ".env"
+    if (-not ($envContent -match "PUBLIC_BACKEND_URL")) {
+        # Добавляем URL бэкенда, если его нет
+        Add-Content -Path ".env" -Value "`nPUBLIC_BACKEND_URL=https://api.chatlux.ru"
+    }
+}
 
 # Выводим адрес бэкенда
 Write-Host "BACKEND URL: https://api.chatlux.ru"
@@ -32,8 +45,32 @@ if (-not $frontendUrl) {
     exit 1
 }
 
-# Записываем оба адреса в .env
-Set-Content -Path ".env" -Value "PUBLIC_BACKEND_URL=https://api.chatlux.ru`nPUBLIC_FRONTEND_URL=$frontendUrl"
+# Обновляем .env файл, сохраняя существующие настройки
+$envContent = Get-Content ".env"
+$newContent = @()
+$backendUrlAdded = $false
+$frontendUrlAdded = $false
+
+foreach ($line in $envContent) {
+    if ($line -match "^PUBLIC_BACKEND_URL=") {
+        $newContent += "PUBLIC_BACKEND_URL=https://api.chatlux.ru"
+        $backendUrlAdded = $true
+    } elseif ($line -match "^PUBLIC_FRONTEND_URL=") {
+        $newContent += "PUBLIC_FRONTEND_URL=$frontendUrl"
+        $frontendUrlAdded = $true
+    } else {
+        $newContent += $line
+    }
+}
+
+if (-not $backendUrlAdded) {
+    $newContent += "PUBLIC_BACKEND_URL=https://api.chatlux.ru"
+}
+if (-not $frontendUrlAdded) {
+    $newContent += "PUBLIC_FRONTEND_URL=$frontendUrl"
+}
+
+$newContent | Set-Content ".env"
 
 # Выводим только адреса с пометкой
 Write-Host "BACKEND URL: https://api.chatlux.ru"
