@@ -134,11 +134,61 @@ function useIsMobileWebApp() {
   return isMobileApp;
 }
 
-const Message: React.FC<{ message: any }> = ({ message }) => {
+const CopyIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 20 20" fill="none"><rect x="6" y="6" width="9" height="9" rx="2" stroke="currentColor" strokeWidth="1.5"/><rect x="4" y="4" width="9" height="9" rx="2" fill="none" stroke="currentColor" strokeWidth="1.2"/></svg>
+);
+const ReplyIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 20 20" fill="none">
+    <path d="M12 5L6 10L12 15" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"/>
+    <path d="M6 10H15C16.1046 10 17 10.8954 17 12V13" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"/>
+  </svg>
+);
+
+const CheckIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 20 20" fill="none"><path d="M5 10.5L9 14.5L15 7.5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"/></svg>
+);
+
+const CloseIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M6 6l8 8M14 6l-8 8" stroke="#bfcfff" strokeWidth="2.2" strokeLinecap="round"/></svg>
+);
+
+const BranchIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 20 20" fill="none">
+    <circle cx="6" cy="4" r="2" stroke="currentColor" strokeWidth="1.5"/>
+    <circle cx="6" cy="16" r="2" stroke="currentColor" strokeWidth="1.5"/>
+    <circle cx="14" cy="10" r="2" stroke="currentColor" strokeWidth="1.5"/>
+    <path d="M6 6v4a4 4 0 004 4h2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+  </svg>
+);
+
+const Message: React.FC<{ message: any; isHovered?: boolean; onHover?: () => void; onLeave?: () => void; onReply?: () => void; onBranch?: () => void }> = ({ message, isHovered, onHover, onLeave, onReply, onBranch }) => {
   const isUser = message.role === 'user';
-  
+  const [copied, setCopied] = React.useState(false);
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(message.content);
+    setCopied(true);
+  };
+  const handleReply = () => {
+    if (onReply) onReply();
+  };
+  const handleBranch = () => {
+    if (onBranch) onBranch();
+  };
+
+  // Сброс галочки при уходе мыши
+  React.useEffect(() => {
+    if (!isHovered && copied) {
+      setCopied(false);
+    }
+  }, [isHovered, copied]);
+
   return (
-    <div className={`message ${isUser ? 'user' : ''}`}>
+    <div
+      className={`message ${isUser ? 'user' : ''} ${isHovered ? 'message--hovered' : ''}`}
+      onMouseEnter={onHover}
+      onMouseLeave={onLeave}
+    >
       {!isUser && (
         <div className="message-avatar assistant">AI</div>
       )}
@@ -153,6 +203,17 @@ const Message: React.FC<{ message: any }> = ({ message }) => {
         </div>
         <div className="message-text">
           {message.content}
+        </div>
+        <div className="message-actions">
+          <button className="message-action-btn" title="Копировать" onClick={handleCopy}>
+            {copied ? <CheckIcon /> : <CopyIcon />}
+          </button>
+          <button className="message-action-btn" title="Ответить" onClick={handleReply}>
+            <ReplyIcon />
+          </button>
+          <button className="message-action-btn branch" title="Создать ветку" onClick={handleBranch}>
+            <BranchIcon />
+          </button>
         </div>
       </div>
       {isUser && (
@@ -192,6 +253,9 @@ export const ChatScreen: React.FC = () => {
   const { chats: chatsContext, loadChats, selectChat, activeChatId } = useChats();
   const { messages, loadMessages, sendMessage } = useMessages();
   const { tg } = useTelegram();
+  const [hoveredMessageId, setHoveredMessageId] = useState<number | null>(null);
+  const [replyTo, setReplyTo] = useState<any | null>(null);
+  const [branchFrom, setBranchFrom] = useState<any | null>(null);
 
   useEffect(() => {
     if (textareaRef.current) {
@@ -463,86 +527,150 @@ export const ChatScreen: React.FC = () => {
       {/* Сообщения */}
       {messages.length > 0 && (
         <div className="messages-container">
-          {messages.map((message) => (
-            <Message key={message.id} message={message} />
-          ))}
-          
-          {loading && (
-            <div className="message">
-              <div className="message-avatar assistant">AI</div>
-              <div className="message-content">
-                <div className="loading-indicator">
-                  <div className="loading-dot"></div>
-                  <div className="loading-dot"></div>
-                  <div className="loading-dot"></div>
+          <div className="messages-inner">
+            {messages.map((message, idx) => (
+              <Message
+                key={message.id || idx}
+                message={message}
+                isHovered={hoveredMessageId === (message.id || idx)}
+                onHover={() => setHoveredMessageId(message.id || idx)}
+                onLeave={() => setHoveredMessageId(null)}
+                onReply={() => { setReplyTo(message); setBranchFrom(null); }}
+                onBranch={() => { setBranchFrom(message); setReplyTo(null); }}
+              />
+            ))}
+            
+            {loading && (
+              <div className="message">
+                <div className="message-avatar assistant">AI</div>
+                <div className="message-content">
+                  <div className="loading-indicator">
+                    <div className="loading-dot"></div>
+                    <div className="loading-dot"></div>
+                    <div className="loading-dot"></div>
+                  </div>
                 </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       )}
 
       {/* Нижняя панель */}
       <div className="chat-bottom-bar">
-        <div className="chat-bottom-bar__input-wrap">
-          <textarea
-            ref={textareaRef}
-            className="chat-bottom-bar__textarea"
-            placeholder="Спросите что-нибудь"
-            value={input}
-            onChange={e => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            disabled={loading}
-            rows={1}
-            maxLength={1000}
-            style={{resize: 'none'}}
-          />
-          <button
-            className={`chat-bottom-bar__send${sendActive ? ' chat-bottom-bar__send--active' : ''}`}
-            onClick={handleSend}
-            disabled={loading || !sendActive}
-            aria-label="Отправить"
-            style={{padding: 0}}
-          >
-            <svg className="send-arrow" viewBox="0 0 20 20" width={22} height={22} style={{display:'block'}}>
-              <path d="M10 16V4M10 4L5 9M10 4l5 5" stroke={arrowColor} strokeWidth={3.2} strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-          </button>
-          <div className="chat-bottom-bar__actions-popover">
-            <button className="quick-action-btn" title="Добавить" onClick={() => setShowClipPanel(v => !v)}>
-              <span className="quick-action-btn__icon"><PlusIcon /></span>
-            </button>
-            {showClipPanel && (
-              <div className="features-panel" ref={clipPanelRef} style={{left: 0, bottom: 44}}>
-                {attachments.map(a => (
-                  <button key={a.label} className="feature-btn">
-                    <span style={{marginRight: 10, display: 'inline-flex', alignItems: 'center'}}>{a.icon}</span>
-                    {a.label}
-                  </button>
-                ))}
+        <div style={{ maxWidth: 540, margin: '0 auto', width: '100%' }}>
+          {replyTo && (
+            <div
+              className="reply-block-ui"
+              style={{
+                background: 'rgba(100,108,255,0.13)',
+                borderRadius: 16,
+                padding: '10px 16px 10px 16px',
+                margin: '0 0 2px 0',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                boxShadow: '0 2px 8px 0 #0002',
+              }}
+            >
+              <div style={{ minWidth: 0 }}>
+                <span style={{ color: '#6ea8fe', fontWeight: 500, fontSize: 14 }}>
+                  Reply to {replyTo.role === 'user' ? 'You' : replyTo.sender_name || 'Assistant'}
+                </span>
+                <div style={{ color: '#e6eaff', fontSize: 13, marginTop: 2, maxWidth: 320, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {replyTo.content}
+                </div>
               </div>
-            )}
-            <button className="quick-action-btn" title="Инструменты" onClick={() => setShowFeatures(v => !v)}>
-              <span className="quick-action-btn__icon">
-                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <rect x="4" y="10" width="12" height="5" rx="1.5" stroke="#bfcfff" strokeWidth="1.7" fill="none"/>
-                  <rect x="8.5" y="13" width="3" height="1.1" rx="0.55" fill="#bfcfff"/>
-                  <rect x="12.7" y="6.2" width="1" height="5" rx="0.5" fill="#ffe066" stroke="#bfcfff" strokeWidth="0.5"/>
-                  <rect x="12.5" y="5.2" width="1.4" height="1.2" rx="0.5" fill="#ffa600" stroke="#bfcfff" strokeWidth="0.3"/>
-                  <rect x="13.05" y="4.3" width="0.3" height="1.1" rx="0.15" fill="#bfcfff"/>
-                </svg>
-              </span>
-            </button>
-            {showFeatures && (
-              <div className="features-panel" ref={featuresPanelRef}>
-                {features.map(f => (
-                  <button key={f.label} className="feature-btn">
-                    <span style={{marginRight: 10, display: 'inline-flex', alignItems: 'center'}}>{f.icon}</span>
-                    {f.label}
-                  </button>
-                ))}
+              <button onClick={() => setReplyTo(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', marginLeft: 12, color: '#bfcfff', padding: 2 }}>
+                <CloseIcon />
+              </button>
+            </div>
+          )}
+          {branchFrom && (
+            <div
+              className="reply-block-ui"
+              style={{
+                background: 'rgba(100,108,255,0.13)',
+                borderRadius: 16,
+                padding: '10px 16px 10px 16px',
+                margin: '0 0 2px 0',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                boxShadow: '0 2px 8px 0 #0002',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', minWidth: 0 }}>
+                <BranchIcon />
+                <span style={{ color: '#6ea8fe', fontWeight: 500, fontSize: 14, marginLeft: 8 }}>
+                  Создание новой ветки
+                </span>
               </div>
-            )}
+              <button onClick={() => setBranchFrom(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', marginLeft: 12, color: '#bfcfff', padding: 2 }}>
+                <CloseIcon />
+              </button>
+            </div>
+          )}
+          <div className="chat-bottom-bar__input-wrap">
+            <textarea
+              ref={textareaRef}
+              className="chat-bottom-bar__textarea"
+              placeholder="Спросите что-нибудь"
+              value={input}
+              onChange={e => setInput(e.target.value)}
+              onKeyDown={handleKeyDown}
+              disabled={loading}
+              rows={1}
+              maxLength={1000}
+              style={{resize: 'none'}}
+            />
+            <button
+              className={`chat-bottom-bar__send${sendActive ? ' chat-bottom-bar__send--active' : ''}`}
+              onClick={handleSend}
+              disabled={loading || !sendActive}
+              aria-label="Отправить"
+              style={{padding: 0}}
+            >
+              <svg className="send-arrow" viewBox="0 0 20 20" width={22} height={22} style={{display:'block'}}>
+                <path d="M10 16V4M10 4L5 9M10 4l5 5" stroke={arrowColor} strokeWidth={3.2} strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            </button>
+            <div className="chat-bottom-bar__actions-popover">
+              <button className="quick-action-btn" title="Добавить" onClick={() => setShowClipPanel(v => !v)}>
+                <span className="quick-action-btn__icon"><PlusIcon /></span>
+              </button>
+              {showClipPanel && (
+                <div className="features-panel" ref={clipPanelRef} style={{left: 0, bottom: 44}}>
+                  {attachments.map(a => (
+                    <button key={a.label} className="feature-btn">
+                      <span style={{marginRight: 10, display: 'inline-flex', alignItems: 'center'}}>{a.icon}</span>
+                      {a.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+              <button className="quick-action-btn" title="Инструменты" onClick={() => setShowFeatures(v => !v)}>
+                <span className="quick-action-btn__icon">
+                  <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <rect x="4" y="10" width="12" height="5" rx="1.5" stroke="#bfcfff" strokeWidth="1.7" fill="none"/>
+                    <rect x="8.5" y="13" width="3" height="1.1" rx="0.55" fill="#bfcfff"/>
+                    <rect x="12.7" y="6.2" width="1" height="5" rx="0.5" fill="#ffe066" stroke="#bfcfff" strokeWidth="0.5"/>
+                    <rect x="12.5" y="5.2" width="1.4" height="1.2" rx="0.5" fill="#ffa600" stroke="#bfcfff" strokeWidth="0.3"/>
+                    <rect x="13.05" y="4.3" width="0.3" height="1.1" rx="0.15" fill="#bfcfff"/>
+                  </svg>
+                </span>
+              </button>
+              {showFeatures && (
+                <div className="features-panel" ref={featuresPanelRef}>
+                  {features.map(f => (
+                    <button key={f.label} className="feature-btn">
+                      <span style={{marginRight: 10, display: 'inline-flex', alignItems: 'center'}}>{f.icon}</span>
+                      {f.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>

@@ -15,6 +15,10 @@
   align-items: stretch;
   justify-content: stretch;
   padding-bottom: 80px;
+  background: none !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+  border: none !important;
 }
 
 body, html, #root {
@@ -79,11 +83,12 @@ body, html, #root {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-end;
   gap: 32px;
   width: 100%;
   min-height: 0;
   transition: opacity 0.3s ease-out;
+  /* overflow-y: auto; убираем скролл у chat-center */
 }
 
 .chat-center--hidden {
@@ -141,23 +146,12 @@ body, html, #root {
 
 /* Нижняя панель */
 .chat-bottom-bar {
-  position: relative;
-  padding-bottom: 0;
-  margin-bottom: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  padding: 8px 8px 8px 8px;
-  background: rgba(30, 32, 38, 0.95);
-  border-top: 1px solid #23242a;
-  width: 100%;
-  border-bottom-left-radius: 16px;
-  border-bottom-right-radius: 16px;
-  box-sizing: border-box;
-  position: static;
-  margin: 0;
+  position: sticky;
+  bottom: 0;
   z-index: 10;
-  gap: 0;
+  background: none !important;
+  border: none !important;
+  box-shadow: none !important;
 }
 
 .chat-bottom-bar__input-wrap {
@@ -165,8 +159,8 @@ body, html, #root {
   z-index: 2;
   display: flex;
   align-items: center;
-  background: rgba(255,255,255,0.10);
-  border-radius: 18px;
+  background: rgba(100,108,255,0.13);
+  border-radius: 16px;
   padding: 8px 12px;
   width: 100%;
   max-width: 540px;
@@ -661,13 +655,33 @@ body, html, #root {
 
 /* Стили для сообщений */
 .messages-container {
-  width: 100%;
-  max-width: 540px;
-  margin: 0 auto;
+  width: 100vw;
   padding: 1rem;
   display: flex;
   flex-direction: column;
   gap: 1rem;
+  max-height: 60vh;
+  overflow-y: auto;
+  overflow-x: hidden;
+  box-sizing: border-box;
+}
+
+.messages-inner {
+  max-width: 540px;
+  margin: 0 auto;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.messages-container::-webkit-scrollbar {
+  width: 8px;
+  background: transparent;
+}
+.messages-container::-webkit-scrollbar-thumb {
+  background: #23242a;
+  border-radius: 8px;
 }
 
 .message {
@@ -679,14 +693,16 @@ body, html, #root {
   width: 100%;
   max-width: 540px;
   margin: 0 auto;
+  position: relative;
+  padding-bottom: 2.5rem;
+}
+
+.message:hover {
+  background-color: transparent;
 }
 
 .message.user {
   justify-content: flex-end;
-}
-
-.message:hover {
-  background-color: rgba(255, 255, 255, 0.04);
 }
 
 .message-avatar {
@@ -714,10 +730,13 @@ body, html, #root {
   flex: 1;
   min-width: 0;
   max-width: 80%;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
 }
 
 .message.user .message-content {
-  text-align: right;
+  align-items: flex-end;
 }
 
 .message-header {
@@ -743,19 +762,26 @@ body, html, #root {
 }
 
 .message-text {
-  font-size: 0.875rem;
+  font-size: 0.95em;
   line-height: 1.5;
   color: #e6eaff;
-  white-space: pre-wrap;
   background: rgba(255,255,255,0.04);
-  padding: 0.75rem 1rem;
-  border-radius: 12px;
+  padding: 0.75rem 1.1rem;
+  border-radius: 16px;
   border: 1px solid rgba(255,255,255,0.1);
+  white-space: pre-line;
+  word-break: break-word;
+  min-width: 48px;
+  max-width: 100%;
+  display: inline-block;
+  box-sizing: border-box;
 }
 
 .message.user .message-text {
   background: #646cff;
   border: none;
+  color: #fff;
+  text-align: left;
 }
 
 .chat-input-container {
@@ -872,4 +898,66 @@ body, html, #root {
   to {
     opacity: 0;
   }
+}
+
+.message-actions {
+  display: flex;
+  gap: 10px;
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s;
+  z-index: 2;
+}
+
+.message.user .message-actions {
+  right: 0;
+  left: auto;
+}
+
+.message:hover .message-actions,
+.message-actions:hover {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.message-action-btn {
+  background: rgba(100,108,255,0.10);
+  border: none;
+  border-radius: 8px;
+  padding: 6px 10px;
+  color: #bfcfff;
+  font-size: 1.1em;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  transition: background 0.18s, color 0.18s;
+}
+
+.message-action-btn:hover {
+  background: #646cff;
+  color: #fff;
+}
+
+.message-action-btn.branch {
+  /* Стили для кнопки ветки */
+  background: rgba(100,108,255,0.10);
+  border: none;
+  border-radius: 8px;
+  padding: 6px 10px;
+  color: #bfcfff;
+  font-size: 1.1em;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  transition: background 0.18s, color 0.18s;
+}
+
+.message-action-btn.branch:hover {
+  background: #646cff;
+  color: #fff;
 } 
