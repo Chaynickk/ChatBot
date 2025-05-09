@@ -1,10 +1,11 @@
-from typing import List, Dict
+from typing import List, Dict, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.models.message import Message
 from app.models.chat import Chat
 from app.models.project import Project
 from app.crud.memory import get_memories_by_telegram_id
+from app.crud.message import get_chat_messages
 
 def messages_to_prompt(messages: List[Dict[str, str]]) -> str:
     """
@@ -31,14 +32,17 @@ def messages_to_prompt(messages: List[Dict[str, str]]) -> str:
     prompt += "Assistant:"  # чтобы модель продолжила
     return prompt
 
-async def get_chat_context(db: AsyncSession, telegram_id: int, chat_id: int) -> List[Dict[str, str]]:
+async def get_chat_context(db: AsyncSession, telegram_id: int, chat_id: int, parent_message_id: Optional[int] = None) -> List[Dict[str, str]]:
     """
     Получает полный контекст чата, включая долговременную память, историю сообщений и системный промпт проекта.
+    Учитывает сообщения из родительских чатов для поддержания контекста ветвления.
+    Если указан parent_message_id, добавляет сообщение, на которое отвечает пользователь.
     
     Args:
         db: Сессия базы данных
         telegram_id: Telegram ID пользователя
         chat_id: ID чата
+        parent_message_id: ID сообщения, на которое отвечает пользователь
         
     Returns:
         List[Dict[str, str]]: Список сообщений в формате [{"role": str, "content": str}, ...]
@@ -72,14 +76,20 @@ async def get_chat_context(db: AsyncSession, telegram_id: int, chat_id: int) -> 
                 "content": project.system_prompt
             })
     
-    # Получаем последние 50 сообщений чата
-    messages_query = await db.execute(
-        select(Message)
-        .where(Message.chat_id == chat_id)
-        .order_by(Message.created_at.desc())
-        .limit(50)
-    )
-    chat_messages = messages_query.scalars().all()
+    # Если есть parent_message_id, получаем сообщение, на которое отвечает пользователь
+    if parent_message_id:
+        parent_message_query = await db.execute(
+            select(Message).where(Message.id == parent_message_id)
+        )
+        parent_message = parent_message_query.scalar_one_or_none()
+        if parent_message:
+            messages.append({
+                "role": "system",
+                "content": f"Пользователь отвечает на сообщение ассистента:\n{parent_message.content}"
+            })
+    
+    # Получаем сообщения с учетом родительских чатов
+    chat_messages = await get_chat_messages(db, chat_id=chat_id, limit=50)
     
     # Добавляем сообщения в обратном порядке (от старых к новым)
     for msg in reversed(chat_messages):
@@ -90,7 +100,7 @@ async def get_chat_context(db: AsyncSession, telegram_id: int, chat_id: int) -> 
     
     return messages
 
-async def get_chat_prompt(db: AsyncSession, telegram_id: int, chat_id: int) -> str:
+async def get_chat_prompt(db: AsyncSession, telegram_id: int, chat_id: int, parent_message_id: Optional[int] = None) -> str:
     """
     Получает полный контекст чата и преобразует его в промпт для модели.
     
@@ -98,10 +108,53 @@ async def get_chat_prompt(db: AsyncSession, telegram_id: int, chat_id: int) -> s
         db: Сессия базы данных
         telegram_id: Telegram ID пользователя
         chat_id: ID чата
+        parent_message_id: ID сообщения, на которое отвечает пользователь
         
     Returns:
         str: Отформатированный промпт для модели, включающий долговременную память,
              системный промпт проекта и историю сообщений
     """
-    messages = await get_chat_context(db, telegram_id, chat_id)
-    return messages_to_prompt(messages) 
+    messages = await get_chat_context(db, telegram_id, chat_id, parent_message_id)
+    return messages_to_prompt(messages)
+
+import os
+from io import BytesIO
+from docx import Document
+import pandas as pd
+import pdfplumber
+from fastapi import UploadFile
+
+async def extract_text_from_file(file: UploadFile) -> str:
+    filename = file.filename
+    ext = os.path.splitext(filename)[-1].lower()
+    content = await file.read()
+    stream = BytesIO(content)
+
+    try:
+        if ext == ".docx":
+            doc = Document(stream)
+            return "\n".join([para.text for para in doc.paragraphs])
+
+        elif ext in [".xlsx", ".xls"]:
+            df = pd.read_excel(stream)
+            return df.to_csv(index=False)
+
+        elif ext == ".csv":
+            df = pd.read_csv(stream)
+            return df.to_csv(index=False)
+
+        elif ext == ".pdf":
+            text = ""
+            with pdfplumber.open(stream) as pdf:
+                for page in pdf.pages:
+                    text += page.extract_text() + "\n"
+            return text.strip()
+
+        elif ext == ".txt":
+            return content.decode("utf-8")
+
+        else:
+            return f"[❌ Неподдерживаемый формат файла: {ext}]"
+
+    except Exception as e:
+        return f"[⚠️ Ошибка при обработке файла: {str(e)}]"

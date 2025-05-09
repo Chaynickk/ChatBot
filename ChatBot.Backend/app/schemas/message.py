@@ -8,6 +8,9 @@ class MessageCreate(BaseModel):
     role: str = "user"  # может быть 'user', 'assistant' или 'system'
     parent_id: Optional[int] = None
 
+    class Config:
+        arbitrary_types_allowed = True
+
 class MessageOut(BaseModel):
     id: int
     chat_id: int
