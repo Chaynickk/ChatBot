@@ -36,10 +36,14 @@ export interface ProjectResponse {
 }
 
 export interface UserResponse {
-    id: number;
+    id?: number;
     telegram_id: string;
-    created_at: string;
-    updated_at: string;
+    username?: string;
+    full_name?: string;
+    is_plus?: boolean;
+    created_at?: string;
+    updated_at?: string;
+    custom_prompt?: string;
 }
 
 export const apiService = {
@@ -229,5 +233,33 @@ export const apiService = {
             console.error('Ошибка при парсинге InitData:', e);
             return {};
         }
+    },
+
+    async getUserByInitData(initData: string): Promise<UserResponse> {
+        const url = `${API_BASE_URL}/users/users/?init_data=${encodeURIComponent(initData)}`;
+        const res = await fetch(url, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+        });
+        if (!res.ok) {
+            throw res;
+        }
+        return res.json();
+    },
+
+    async registerUserByInitData(initData: string): Promise<UserResponse> {
+        const url = `${API_BASE_URL}/users/users/?init_data=${encodeURIComponent(initData)}`;
+        const res = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+        });
+        if (!res.ok) {
+            throw res;
+        }
+        return res.json();
     }
 }; 
