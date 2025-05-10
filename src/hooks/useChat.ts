@@ -25,6 +25,9 @@ export function useChat(): UseChatReturn {
     setError(null);
 
     try {
+      // Получаем выбранную модель из localStorage
+      const selectedModelId = Number(localStorage.getItem('selectedModelId')) || undefined;
+
       // Создаем сообщение пользователя
       const userMessage: Message = {
         id: Date.now(),
@@ -37,7 +40,7 @@ export function useChat(): UseChatReturn {
       setMessages(prev => [...prev, userMessage]);
 
       // Отправляем сообщение и получаем ответ
-      const responseStream = await chatService.sendMessage(message, telegramId);
+      const responseStream = await chatService.sendMessage(message, telegramId, selectedModelId);
       
       // Обрабатываем стриминг ответа
       let assistantMessage: Message | null = null;

@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import './ChatScreen.css';
-import { apiService, SendMessageRequest, MessageStreamEvent } from '../services/api';
+import { apiService } from '../services/api';
 import { useUser } from './UserContext';
 import { useChats } from './ChatsContext';
 import { useMessages } from './MessagesContext';
@@ -53,7 +53,7 @@ const PlusIcon = () => (
 const Sidebar: React.FC<{
   open: boolean;
   onClose: () => void;
-  projects: string[];
+  projects: Array<{id: number, name: string}>;
   chats: string[];
   onAddProject: () => void;
   onSelectChat: (idx: number) => void;
@@ -82,7 +82,7 @@ const Sidebar: React.FC<{
       </div>
       <div className="sidebar-section">
         {projects.map((p) => (
-          <div key={p} className="sidebar-project">{p}</div>
+          <div key={p.id} className="sidebar-project">{p.name}</div>
         ))}
       </div>
       <div className="sidebar-section" style={{marginTop: 24}}>
@@ -230,8 +230,7 @@ export const ChatScreen: React.FC = () => {
   const [showClipPanel, setShowClipPanel] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [projectModalOpen, setProjectModalOpen] = useState(false);
-  const [projects, setProjects] = useState<string[]>(['Мой проект']);
-  const [selectedChat, setSelectedChat] = useState<number | null>(null);
+  const [projects, setProjects] = useState<Array<{id: number, name: string}>>([{id: 1, name: 'Мой проект'}]);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const featuresPanelRef = useRef<HTMLDivElement>(null);
   const clipPanelRef = useRef<HTMLDivElement | null>(null);
@@ -305,6 +304,30 @@ export const ChatScreen: React.FC = () => {
       loadMessages();
     }
   }, [activeChatId]);
+
+  useEffect(() => {
+    // Сохраняем выбранную модель в localStorage
+    if (selectedModel && selectedModel.name) {
+      // Пример: ChatLUX -> 1, GPT-4o -> 2, Gemma3 -> 3
+      const modelMap: Record<string, number> = {
+        'ChatLUX': 1,
+        'GPT-4o': 2,
+        'Gemma3': 3,
+      };
+      localStorage.setItem('selectedModelId', String(modelMap[selectedModel.name] || 1));
+    }
+  }, [selectedModel]);
+
+  const handleCreateProject = async (name: string) => {
+    try {
+      const project = await apiService.createProject(name, user?.telegram_id || 0);
+      setProjects(prev => [...prev, {id: project.id, name: project.name}]);
+      console.log(`Проект "${project.name}" успешно создан!`);
+    } catch (e) {
+      console.error('Ошибка при создании проекта:', e);
+    }
+    setProjectModalOpen(false);
+  };
 
   const handleSend = async () => {
     if (!input.trim() || loading) return;
@@ -384,7 +407,7 @@ export const ChatScreen: React.FC = () => {
       <ProjectModal
         open={projectModalOpen}
         onClose={() => setProjectModalOpen(false)}
-        onCreate={name => { setProjects(prev => [...prev, name]); setProjectModalOpen(false); }}
+        onCreate={handleCreateProject}
       />
       {/* Верхняя панель */}
       <div className="chat-topbar">

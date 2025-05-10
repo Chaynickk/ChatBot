@@ -66,13 +66,26 @@ class ChatService {
     return Date.now() + Math.floor(Math.random() * 1000);
   }
 
-  async createChat(telegramId: number, title?: string): Promise<ChatOut> {
+  async createChat(
+    telegramId: number,
+    title: string = 'Новый чат',
+    modelId: number = 1,
+    projectId: number = 0,
+    folderId: number = 0,
+    parentChatId: number = 0,
+    parentMessageId: number = 0
+  ): Promise<ChatOut> {
     if (!this.isBackendAvailable) {
       // Заглушка для оффлайн режима
       const fallbackChat: ChatOut = {
         id: this.generateFallbackChatId(),
         user_id: telegramId,
-        title: title || 'Новый чат',
+        title,
+        model_id: modelId,
+        project_id: projectId,
+        folder_id: folderId,
+        parent_chat_id: parentChatId,
+        parent_message_id: parentMessageId,
         created_at: new Date().toISOString()
       };
       this.currentChatId = fallbackChat.id;
@@ -80,15 +93,21 @@ class ChatService {
     }
 
     try {
+      const body = {
+        user_id: telegramId,
+        project_id: projectId,
+        folder_id: folderId,
+        title,
+        model_id: modelId,
+        parent_chat_id: parentChatId,
+        parent_message_id: parentMessageId
+      };
       const response = await fetch(`${BACKEND_URL}/api/chats/`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          user_id: telegramId,
-          title: title || 'Новый чат'
-        })
+        body: JSON.stringify(body)
       });
 
       if (!response.ok) {
@@ -104,10 +123,10 @@ class ChatService {
     }
   }
 
-  async sendMessage(message: string, telegramId: number): Promise<AsyncGenerator<MessageOut, void, unknown>> {
+  async sendMessage(message: string, telegramId: number, modelId?: number): Promise<AsyncGenerator<MessageOut, void, unknown>> {
     if (!this.currentChatId) {
-      // Если чат еще не создан, создаем его
-      await this.createChat(telegramId);
+      // Если чат еще не создан, создаем его с modelId
+      await this.createChat(telegramId, undefined, modelId);
     }
 
     if (!this.isBackendAvailable) {

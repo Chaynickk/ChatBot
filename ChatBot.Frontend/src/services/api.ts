@@ -1,4 +1,15 @@
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+// Удаляю prompt и sessionStorage
+// const sessionBackendUrl = sessionStorage.getItem('backendUrl');
+// if (!sessionBackendUrl) {
+//   const backendUrl = prompt('Введите адрес бэкенда:', import.meta.env.VITE_API_URL || 'http://localhost:5000');
+//   if (backendUrl) {
+//     sessionStorage.setItem('backendUrl', backendUrl);
+//   }
+// }
+
+// Заменяю загрузку из env на жёсткую константу
+export const API_BASE_URL = 'https://huge-fairly-distributions-amsterdam.trycloudflare.com';
+console.log('API_BASE_URL (api.ts):', API_BASE_URL);
 
 export interface ChatResponse {
     response: string;
@@ -15,6 +26,21 @@ export type MessageStreamEvent =
     | { type: 'user_message'; data: any }
     | { type: 'chunk'; data: string }
     | { type: 'assistant_message'; data: any };
+
+export interface ProjectResponse {
+    id: number;
+    name: string;
+    user_id: number;
+    created_at: string;
+    updated_at: string;
+}
+
+export interface UserResponse {
+    id: number;
+    telegram_id: string;
+    created_at: string;
+    updated_at: string;
+}
 
 export const apiService = {
     async sendToGigaChat(message: string): Promise<ChatResponse> {
@@ -34,7 +60,11 @@ export const apiService = {
     },
 
     async sendToYandexGPT(message: string): Promise<ReadableStream> {
-        const response = await fetch(`${API_BASE_URL}/chat/stream?message=${encodeURIComponent(message)}`);
+        const response = await fetch(`${API_BASE_URL}/chat/stream?message=${encodeURIComponent(message)}`, {
+            headers: {
+                'Content-Type': 'application/json',
+            },
+        });
         
         if (!response.ok) {
             throw new Error('Ошибка при отправке сообщения');
@@ -90,6 +120,114 @@ export const apiService = {
                     }
                 }
             }
+        }
+    },
+
+    async createProject(name: string, user_id: number = 0): Promise<ProjectResponse> {
+        const url = `${API_BASE_URL}/api/projects/`;
+        try {
+            const res = await fetch(url, {
+                method: 'POST',
+                headers: { 
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ name, user_id }),
+            });
+            
+            if (!res.ok) {
+                const errorData = await res.json().catch(() => ({}));
+                console.error('Ошибка при создании проекта:', errorData);
+                throw new Error(`Ошибка при создании проекта: ${res.status} ${res.statusText}`);
+            }
+            
+            const data = await res.json();
+            console.log('Проект успешно создан:', data);
+            return data;
+        } catch (error) {
+            console.error('Ошибка при создании проекта:', error);
+            throw error;
+        }
+    },
+
+    async createChat({
+        user_id,
+        project_id,
+        folder_id = null,
+        title = 'Новый чат',
+        model_id = 1,
+        parent_chat_id = null,
+        parent_message_id = null
+    }: {
+        user_id: number,
+        project_id?: number,
+        folder_id?: number | null,
+        title?: string,
+        model_id?: number,
+        parent_chat_id?: number | null,
+        parent_message_id?: number | null
+    }) {
+        const url = `${API_BASE_URL}/api/chats/`;
+        const body = {
+            user_id,
+            project_id,
+            folder_id,
+            title,
+            model_id,
+            parent_chat_id,
+            parent_message_id
+        };
+        console.log('Создание чата, тело запроса:', body);
+        const res = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(body),
+        });
+        if (!res.ok) {
+            const errorData = await res.json().catch(() => ({}));
+            console.error('Ошибка при создании чата:', errorData);
+            throw new Error(`Ошибка при создании чата: ${res.status} ${res.statusText}`);
+        }
+        const data = await res.json();
+        console.log('Чат успешно создан:', data);
+        return data;
+    },
+
+    async createUser(telegram_id: string): Promise<UserResponse> {
+        const url = `${API_BASE_URL}/api/users/`;
+        try {
+            const res = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ telegram_id }),
+            });
+            if (!res.ok) {
+                const errorData = await res.json().catch(() => ({}));
+                console.error('Ошибка при создании пользователя:', errorData);
+                throw new Error(`Ошибка при создании пользователя: ${res.status} ${res.statusText}`);
+            }
+            const data = await res.json();
+            console.log('Пользователь успешно создан:', data);
+            return data;
+        } catch (error) {
+            console.error('Ошибка при создании пользователя:', error);
+            throw error;
+        }
+    },
+
+    getInitData(): { user?: { id: string } } {
+        const urlParams = new URLSearchParams(window.location.search);
+        const initData = urlParams.get('initData');
+        if (!initData) return {};
+        try {
+            const data = JSON.parse(decodeURIComponent(initData));
+            return data;
+        } catch (e) {
+            console.error('Ошибка при парсинге InitData:', e);
+            return {};
         }
     }
 }; 

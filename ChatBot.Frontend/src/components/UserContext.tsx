@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { API_BASE_URL } from '../services/api';
 
 interface User {
   telegram_id: number;
@@ -34,7 +35,7 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   useEffect(() => {
     (async () => {
       try {
-        const res = await fetch('/ping');
+        const res = await fetch(`${API_BASE_URL}/ping`);
         if (!res.ok) throw new Error();
         setBackendAvailable(true);
         setOfflineMessage(null);

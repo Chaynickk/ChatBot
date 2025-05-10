@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, ReactNode } from 'react';
 import { useUser } from './UserContext';
+import { apiService } from '../services/api';
 
 export interface Chat {
   id: number;
@@ -12,7 +13,7 @@ interface ChatsContextType {
   chats: Chat[];
   activeChatId: number | null;
   loadChats: () => Promise<void>;
-  createChat: (title?: string, project_id?: number) => Promise<number | null>;
+  createChat: (title?: string, project_id?: number, model_id?: number) => Promise<number | null>;
   selectChat: (id: number) => void;
 }
 
@@ -29,37 +30,42 @@ export const ChatsProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   const [chats, setChats] = useState<Chat[]>([]);
   const [activeChatId, setActiveChatId] = useState<number | null>(null);
 
+  const AUTH_HEADER = "Basic 141.101.142.1";
+
   const loadChats = async () => {
     if (!user) return;
-    const res = await fetch(`/api/chats/?telegram_id=${user.telegram_id}`);
+    const res = await fetch(`/api/chats/?telegram_id=${user.telegram_id}`, {
+      headers: { 'Authorization': AUTH_HEADER }
+    });
     if (res.ok) {
       const data = await res.json();
       setChats(data);
     }
   };
 
-  const createChat = async (title?: string, project_id?: number) => {
+  const createChat = async (title?: string, project_id?: number, model_id?: number) => {
     if (!user) {
-      // Fallback: временный чат для офлайн-режима
-      setChats(prev => [{ id: 1, title: title || 'Локальный чат' }, ...prev]);
+      // Fallback: временный чат для оффлайн-режима
+      setChats(prev => [{ id: 1, title: title || 'Локальный чат', model_id }, ...prev]);
       setActiveChatId(1);
+      console.log('Создан локальный чат (оффлайн-режим)');
       return 1;
     }
-    const body: any = { user_id: user.telegram_id };
-    if (title) body.title = title;
-    if (project_id) body.project_id = project_id;
-    const res = await fetch('/api/chats/', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    });
-    if (res.ok) {
-      const chat = await res.json();
+    try {
+      const chat = await apiService.createChat({
+        user_id: user.telegram_id,
+        project_id,
+        title: title || 'Новый чат',
+        model_id: model_id || 1
+      });
       setChats(prev => [chat, ...prev]);
       setActiveChatId(chat.id);
+      console.log('Чат успешно создан:', chat);
       return chat.id;
+    } catch (e) {
+      console.error('Ошибка при создании чата:', e);
+      return null;
     }
-    return null;
   };
 
   const selectChat = (id: number) => {
