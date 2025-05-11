@@ -1,12 +1,14 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { useChats } from './ChatsContext';
-import { apiService, MessageStreamEvent, SendMessageRequest } from '../services/api';
+import { useUser } from './UserContext';
+import { apiService, API_BASE_URL } from '../services/api';
 
 interface Message {
   id?: number;
   role: string;
   content: string;
   created_at?: string;
+  isThinking?: boolean;
   // другие поля по необходимости
 }
 
@@ -25,19 +27,26 @@ export const useMessages = () => {
 };
 
 export const MessagesProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const { activeChatId, createChat } = useChats();
+  const { activeChatId } = useChats();
+  const { user } = useUser();
   const [messages, setMessages] = useState<Message[]>([]);
   const selectedModelId = Number(localStorage.getItem('selectedModelId')) || undefined;
+
+  useEffect(() => {
+    if (activeChatId) {
+      loadMessages();
+    } else {
+      setMessages([]);
+    }
+  }, [activeChatId]);
 
   const loadMessages = async () => {
     if (!activeChatId) return;
     try {
-      console.log('Загрузка сообщений для чата:', activeChatId);
-      const res = await fetch(`/messages/messages/?chat_id=${activeChatId}`);
+      const res = await fetch(`${API_BASE_URL}/api/messages/?chat_id=${activeChatId}`);
       if (res.ok) {
         const data = await res.json();
         setMessages(data);
-        console.log('Сообщения успешно загружены:', data);
       } else {
         const errText = await res.text();
         console.error(`Ошибка при загрузке сообщений: ${res.status} ${errText}`);
@@ -48,52 +57,68 @@ export const MessagesProvider: React.FC<{ children: ReactNode }> = ({ children }
   };
 
   const sendMessage = async (content: string) => {
+    const tempUserId = Date.now();
+    const userMessage = {
+      id: tempUserId,
+      role: 'user',
+      content,
+      created_at: new Date().toISOString(),
+    };
+    setMessages(prev => [...prev, userMessage]);
+
     let chatId = activeChatId;
     if (!chatId) {
-      console.log('Чат не выбран, создаём новый чат перед отправкой сообщения...');
-      chatId = await createChat(undefined, undefined, selectedModelId);
-      if (!chatId) {
-        console.error('Не удалось создать чат, сообщение не отправлено');
+      try {
+        if (!user?.telegram_id) {
+          throw new Error('Пользователь не авторизован');
+        }
+        const title = 'Новый чат';
+        const model_id = selectedModelId || 1;
+        chatId = await apiService.createChat({ 
+          user_id: Number(user.telegram_id),
+          title, 
+          model_id 
+        });
+      } catch (e) {
+        console.error('Ошибка создания чата:', e);
+        setMessages(prev => [
+          ...prev,
+          {
+            role: 'assistant',
+            content: `Ошибка создания чата. Пожалуйста, убедитесь, что вы авторизованы в Telegram.`,
+            created_at: new Date().toISOString(),
+            id: tempUserId + 2
+          }
+        ]);
         return;
       }
     }
-    const userMsg: SendMessageRequest = {
-      chat_id: chatId,
-      content,
-      role: 'user',
-      parent_id: 0,
-    };
-    setMessages(prev => [...prev, { ...userMsg, pending: true, created_at: new Date().toISOString() }]);
+
+    const formData = new FormData();
+    formData.append('chat_id', String(chatId));
+    formData.append('content', content);
+
     try {
-      console.log('Отправка сообщения:', userMsg);
-      await apiService.sendMessageToBackend(userMsg, (event: MessageStreamEvent) => {
-        if (event.type === 'user_message') {
-          setMessages(prev => prev.map((m, i) => i === prev.length - 1 ? { ...event.data, role: 'user' } : m));
-          console.log('user_message event:', event.data);
-        } else if (event.type === 'chunk') {
-          setMessages(prev => {
-            if (prev.length && prev[prev.length - 1].role === 'assistant') {
-              return prev.map((m, i) => i === prev.length - 1 ? { ...m, content: (m.content || '') + event.data } : m);
-            } else {
-              return [...prev, { role: 'assistant', content: event.data, created_at: new Date().toISOString() }];
-            }
-          });
-          // Можно логировать чанки, если нужно
-        } else if (event.type === 'assistant_message') {
-          setMessages(prev => prev.map((m, i) =>
-            i === prev.length - 1 && m.role === 'assistant' ? { ...event.data, role: 'assistant' } : m
-          ));
-          console.log('assistant_message event:', event.data);
+      const response = await fetch(`${API_BASE_URL}/messages/`, {
+        method: 'POST',
+        body: formData,
+        headers: {
+          'Authorization': `Telegram ${user?.telegram_id}`
         }
       });
-      console.log('Сообщение успешно отправлено');
+      if (!response.ok) {
+        throw new Error('Ошибка при отправке сообщения');
+      }
+      await loadMessages();
     } catch (e) {
-      console.error('Ошибка при отправке сообщения:', e);
-      // Заглушка если бэкенд не отвечает
       setMessages(prev => [
-        ...prev.slice(0, -1),
-        { ...userMsg, role: 'user', created_at: new Date().toISOString() },
-        { role: 'assistant', content: 'Извините, сервер временно недоступен.', created_at: new Date().toISOString() }
+        ...prev,
+        {
+          role: 'assistant',
+          content: 'Извините, произошла ошибка при отправке сообщения. Пожалуйста, попробуйте еще раз.',
+          created_at: new Date().toISOString(),
+          id: tempUserId + 4
+        }
       ]);
     }
   };

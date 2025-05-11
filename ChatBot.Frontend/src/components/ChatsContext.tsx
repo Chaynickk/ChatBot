@@ -53,7 +53,7 @@ export const ChatsProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     }
     try {
       const chat = await apiService.createChat({
-        user_id: user.telegram_id,
+        user_id: Number(user.telegram_id),
         project_id,
         title: title || 'Новый чат',
         model_id: model_id || 1

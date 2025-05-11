@@ -8,7 +8,7 @@
 // }
 
 // Заменяю загрузку из env на жёсткую константу
-export const API_BASE_URL = 'https://huge-fairly-distributions-amsterdam.trycloudflare.com';
+export const API_BASE_URL = 'https://gene-door-roulette-waves.trycloudflare.com';
 console.log('API_BASE_URL (api.ts):', API_BASE_URL);
 
 export interface ChatResponse {
@@ -97,12 +97,14 @@ export const apiService = {
         body: SendMessageRequest,
         onEvent: (event: MessageStreamEvent) => void
     ) {
-        const response = await fetch(`${API_BASE_URL}/messages/messages/`, {
+        const formData = new FormData();
+        formData.append('chat_id', String(body.chat_id));
+        formData.append('content', body.content);
+        // role и parent_id не добавляем
+
+        const response = await fetch(`${API_BASE_URL}/messages/`, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(body),
+            body: formData,
         });
         if (!response.body) throw new Error('Нет потока данных');
         const reader = response.body.getReader();
@@ -195,7 +197,7 @@ export const apiService = {
         }
         const data = await res.json();
         console.log('Чат успешно создан:', data);
-        return data;
+        return data.id;
     },
 
     async createUser(telegram_id: string): Promise<UserResponse> {
@@ -261,5 +263,15 @@ export const apiService = {
             throw res;
         }
         return res.json();
+    },
+
+    async getLastChatIdByTelegramId(telegram_id: number): Promise<number | null> {
+        const res = await fetch(`${API_BASE_URL}/api/chats/?telegram_id=${telegram_id}`);
+        if (!res.ok) return null;
+        const data = await res.json();
+        if (Array.isArray(data) && data.length > 0) {
+            return data[data.length - 1].id;
+        }
+        return null;
     }
 }; 

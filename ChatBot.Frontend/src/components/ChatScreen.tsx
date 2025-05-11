@@ -4,7 +4,6 @@ import { apiService } from '../services/api';
 import { useUser } from './UserContext';
 import { useChats } from './ChatsContext';
 import { useMessages } from './MessagesContext';
-import { useTelegram } from '../hooks/useTelegram';
 
 const features = [
   { label: 'Улучшить промпт', icon: (
@@ -183,9 +182,19 @@ const Message: React.FC<{ message: any; isHovered?: boolean; onHover?: () => voi
     }
   }, [isHovered, copied]);
 
+  if (message.isThinking) {
+    return (
+      <div className="message thinking">
+        <div className="loading-indicator">
+          <div className="loading-dot"></div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div
-      className={`message ${isUser ? 'user' : ''} ${isHovered ? 'message--hovered' : ''}`}
+      className={`message ${isUser ? 'user' : ''}`}
       onMouseEnter={onHover}
       onMouseLeave={onLeave}
     >
@@ -198,27 +207,24 @@ const Message: React.FC<{ message: any; isHovered?: boolean; onHover?: () => voi
             {isUser ? 'Вы' : 'Ассистент'}
           </span>
           <span className="message-time">
-            {new Date(message.created_at).toLocaleTimeString()}
+            {message.created_at ? new Date(message.created_at).toLocaleTimeString() : ''}
           </span>
         </div>
         <div className="message-text">
-          {message.content}
-        </div>
-        <div className="message-actions">
-          <button className="message-action-btn" title="Копировать" onClick={handleCopy}>
-            {copied ? <CheckIcon /> : <CopyIcon />}
-          </button>
-          <button className="message-action-btn" title="Ответить" onClick={handleReply}>
-            <ReplyIcon />
-          </button>
-          <button className="message-action-btn branch" title="Создать ветку" onClick={handleBranch}>
-            <BranchIcon />
-          </button>
+          {message.content || ''}
         </div>
       </div>
-      {isUser && (
-        <div className="message-avatar user">U</div>
-      )}
+      <div className={`message-actions${isHovered ? ' message-actions--visible' : ''}`}>
+        <button onClick={handleCopy} className="message-action" title="Копировать">
+          {copied ? <CheckIcon /> : <CopyIcon />}
+        </button>
+        <button onClick={handleReply} className="message-action" title="Ответить">
+          <ReplyIcon />
+        </button>
+        <button onClick={handleBranch} className="message-action" title="Создать ветку">
+          <BranchIcon />
+        </button>
+      </div>
     </div>
   );
 };
@@ -248,10 +254,9 @@ export const ChatScreen: React.FC = () => {
   const isMobileApp = useIsMobileWebApp();
   const [wavesEnabled, setWavesEnabled] = useState(true);
   const [showSettingsMenu, setShowSettingsMenu] = useState(false);
-  const { user, login, offlineMessage } = useUser();
-  const { chats: chatsContext, loadChats, selectChat, activeChatId } = useChats();
+  const { user, offlineMessage } = useUser();
+  const { chats: chatsContext, selectChat, activeChatId } = useChats();
   const { messages, loadMessages, sendMessage } = useMessages();
-  const { tg } = useTelegram();
   const [hoveredMessageId, setHoveredMessageId] = useState<number | null>(null);
   const [replyTo, setReplyTo] = useState<any | null>(null);
   const [branchFrom, setBranchFrom] = useState<any | null>(null);
@@ -289,16 +294,6 @@ export const ChatScreen: React.FC = () => {
   }, [modelMenuOpen]);
 
   useEffect(() => {
-    // Получаем init_data из Telegram WebApp и логинимся
-    const initData = tg?.initData;
-    if (initData) {
-      login(initData).then(() => {
-        loadChats();
-      });
-    }
-  }, [tg]);
-
-  useEffect(() => {
     // Загружаем сообщения при выборе чата
     if (activeChatId) {
       loadMessages();
@@ -320,7 +315,7 @@ export const ChatScreen: React.FC = () => {
 
   const handleCreateProject = async (name: string) => {
     try {
-      const project = await apiService.createProject(name, user?.telegram_id || 0);
+      const project = await apiService.createProject(name, user?.telegram_id ? Number(user.telegram_id) : 0);
       setProjects(prev => [...prev, {id: project.id, name: project.name}]);
       console.log(`Проект "${project.name}" успешно создан!`);
     } catch (e) {
@@ -376,24 +371,6 @@ export const ChatScreen: React.FC = () => {
         </div>
       )}
       {wavesEnabled && <div className="background-gradient" aria-hidden="true"></div>}
-      {wavesEnabled && (
-        <div className="background-waves" aria-hidden="true">
-          <svg width="100%" height="100%" viewBox="0 0 1440 900" preserveAspectRatio="none" style={{position: 'absolute', top: 0, left: 0, width: '120vw', height: '120vh', transform: 'translate(-10vw, -8vh) rotate(-18deg)'}}>
-            <defs>
-              <linearGradient id="waveGradient1" x1="0" y1="0" x2="1" y2="1">
-                <stop offset="0%" stopColor="#232bff" stopOpacity="0.18"/>
-                <stop offset="100%" stopColor="#646cff" stopOpacity="0.10"/>
-              </linearGradient>
-              <linearGradient id="waveGradient2" x1="0" y1="1" x2="1" y2="0">
-                <stop offset="0%" stopColor="#bfcfff" stopOpacity="0.08"/>
-                <stop offset="100%" stopColor="#232bff" stopOpacity="0.06"/>
-              </linearGradient>
-            </defs>
-            <path className="wave1" d="M0,700 Q360,600 720,700 T1440,700 V900 H0Z" fill="url(#waveGradient1)"/>
-            <path className="wave2" d="M0,800 Q480,750 960,800 T1440,800 V900 H0Z" fill="url(#waveGradient2)"/>
-          </svg>
-        </div>
-      )}
       {/* Sidebar */}
       <Sidebar
         open={sidebarOpen}
@@ -562,14 +539,11 @@ export const ChatScreen: React.FC = () => {
                 onBranch={() => { setBranchFrom(message); setReplyTo(null); }}
               />
             ))}
-            
-            {loading && (
+            {/* Индикатор загрузки только если нет сообщения isThinking */}
+            {loading && !messages.some(m => m.isThinking) && (
               <div className="message">
-                <div className="message-avatar assistant">AI</div>
-                <div className="message-content">
+                <div className="message-content loading-message-content">
                   <div className="loading-indicator">
-                    <div className="loading-dot"></div>
-                    <div className="loading-dot"></div>
                     <div className="loading-dot"></div>
                   </div>
                 </div>
