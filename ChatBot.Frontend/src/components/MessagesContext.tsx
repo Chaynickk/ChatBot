@@ -94,6 +94,19 @@ export const MessagesProvider: React.FC<{ children: ReactNode }> = ({ children }
       }
     }
 
+    // Добавляем временное сообщение ассистента с пульсирующей точкой
+    const tempBotMsgId = tempUserId + 1;
+    setMessages(prev => [
+      ...prev,
+      {
+        id: tempBotMsgId,
+        role: 'assistant',
+        content: '',
+        isThinking: true,
+        created_at: new Date().toISOString(),
+      }
+    ]);
+
     const formData = new FormData();
     formData.append('chat_id', String(chatId));
     formData.append('content', content);
@@ -106,10 +119,66 @@ export const MessagesProvider: React.FC<{ children: ReactNode }> = ({ children }
           'Authorization': `Telegram ${user?.telegram_id}`
         }
       });
-      if (!response.ok) {
-        throw new Error('Ошибка при отправке сообщения');
+      if (!response.body) throw new Error('Нет потока данных');
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder('utf-8');
+      let botText = '';
+      let firstChunk = true;
+      let done = false;
+      while (!done) {
+        const { value, done: streamDone } = await reader.read();
+        done = streamDone;
+        const chunk = decoder.decode(value || new Uint8Array(), { stream: true });
+        const lines = chunk.split('\n');
+        for (const line of lines) {
+          if (line.startsWith('data:')) {
+            try {
+              const json = JSON.parse(line.slice(5));
+              if (json.type === 'chunk' && json.data) {
+                if (firstChunk) {
+                  // Убираем пульсирующую точку
+                  setMessages(prev =>
+                    prev.map(msg =>
+                      msg.id === tempBotMsgId
+                        ? { ...msg, isThinking: false }
+                        : msg
+                    )
+                  );
+                  firstChunk = false;
+                }
+                botText += json.data;
+                setMessages(prev =>
+                  prev.map(msg =>
+                    msg.id === tempBotMsgId
+                      ? { ...msg, content: botText }
+                      : msg
+                  )
+                );
+              }
+              if (json.type === 'assistant_message' && json.data) {
+                // Финальное сообщение ассистента (можно обновить, если нужно)
+                setMessages(prev =>
+                  prev.map(msg =>
+                    msg.id === tempBotMsgId
+                      ? { ...msg, content: json.data.content, isThinking: false }
+                      : msg
+                  )
+                );
+              }
+            } catch (e) {
+              // ignore parse errors
+            }
+          }
+        }
       }
-      await loadMessages();
+      // На всякий случай убираем isThinking
+      setMessages(prev =>
+        prev.map(msg =>
+          msg.id === tempBotMsgId
+            ? { ...msg, isThinking: false }
+            : msg
+        )
+      );
     } catch (e) {
       setMessages(prev => [
         ...prev,
