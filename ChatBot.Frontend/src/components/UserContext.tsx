@@ -15,7 +15,6 @@ interface UserContextType {
   logout: () => void;
   backendAvailable: boolean;
   offlineMessage: string | null;
-  isLoading: boolean;
 }
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
@@ -36,8 +35,6 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children, onNotifica
   const [initData, setInitData] = useState<string | null>(null);
   const [backendAvailable, setBackendAvailable] = useState(true);
   const [offlineMessage, setOfflineMessage] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [isLoginInProgress, setIsLoginInProgress] = useState(false);
 
   // Проверка доступности бэкенда
   useEffect(() => {
@@ -63,21 +60,14 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children, onNotifica
 
   // login: проверяет или регистрирует пользователя
   const login = async (initData: string) => {
-    // Защита от повторных вызовов
-    if (isLoginInProgress) {
-      console.log('Авторизация уже выполняется...');
-      return;
-    }
-
+    console.log('Начало процесса авторизации');
+    setInitData(initData);
+    localStorage.setItem('initData', initData);
     try {
-      setIsLoginInProgress(true);
-      setIsLoading(true);
-      setInitData(initData);
-      localStorage.setItem('initData', initData);
-      
-      // Сначала пробуем получить пользователя
+      console.log('Попытка получить пользователя по initData');
       const user = await apiService.getUserByInitData(initData);
       if (user && (user.telegram_id || user.id)) {
+        console.log('Пользователь успешно получен:', user);
         setUser(user as User);
         if (user.telegram_id) {
           localStorage.setItem('user_id', user.telegram_id);
@@ -88,35 +78,52 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children, onNotifica
         });
         return;
       }
-
-      // Если пользователь не найден, регистрируем его
-      const newUser = await apiService.registerUserByInitData(initData);
-      if (newUser && (newUser.telegram_id || newUser.id)) {
-        setUser(newUser as User);
-        if (newUser.telegram_id) {
-          localStorage.setItem('user_id', newUser.telegram_id);
+    } catch (error: any) {
+      console.error('Ошибка при получении пользователя:', error);
+      // Проверяем, что ошибка — именно отсутствие пользователя (404)
+      if (error.status === 404) {
+        try {
+          console.log('Попытка зарегистрировать нового пользователя');
+          const newUser = await apiService.registerUserByInitData(initData);
+          if (newUser && (newUser.telegram_id || newUser.id)) {
+            console.log('Новый пользователь успешно зарегистрирован:', newUser);
+            setUser(newUser as User);
+            if (newUser.telegram_id) {
+              localStorage.setItem('user_id', newUser.telegram_id);
+            }
+            onNotification({
+              type: 'success',
+              message: 'Регистрация успешно выполнена'
+            });
+            return;
+          }
+        } catch (regError: any) {
+          console.error('Ошибка при регистрации пользователя:', regError);
+          const errorMessage = regError.status 
+            ? `Ошибка авторизации (${regError.status}): ${regError.statusText}`
+            : 'Ошибка авторизации: Не удалось зарегистрировать пользователя';
+          setUser(null);
+          setOfflineMessage(errorMessage);
+          setBackendAvailable(false);
+          onNotification({
+            type: 'error',
+            message: errorMessage
+          });
+          throw regError;
         }
-        onNotification({
-          type: 'success',
-          message: 'Регистрация успешно выполнена'
-        });
-        return;
       }
-
-      throw new Error('Не удалось получить или создать пользователя');
-    } catch (error) {
-      console.error('Ошибка при авторизации:', error);
+      // Любая другая ошибка — показываем ошибку авторизации
+      const errorMessage = error.status 
+        ? `Ошибка авторизации (${error.status}): ${error.statusText}`
+        : 'Ошибка авторизации: Не удалось получить данные пользователя';
       setUser(null);
-      setOfflineMessage('Ошибка авторизации. Пожалуйста, попробуйте перезагрузить страницу.');
+      setOfflineMessage(errorMessage);
       setBackendAvailable(false);
       onNotification({
         type: 'error',
-        message: 'Ошибка авторизации. Пожалуйста, попробуйте перезагрузить страницу.'
+        message: errorMessage
       });
       throw error;
-    } finally {
-      setIsLoading(false);
-      setIsLoginInProgress(false);
     }
   };
 
@@ -135,7 +142,6 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children, onNotifica
       logout, 
       backendAvailable, 
       offlineMessage,
-      isLoading
     }}>
       {children}
     </UserContext.Provider>

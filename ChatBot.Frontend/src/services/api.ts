@@ -8,7 +8,8 @@
 // }
 
 // Заменяю загрузку из env на жёсткую константу
-export const API_BASE_URL = 'https://gene-door-roulette-waves.trycloudflare.com';
+export const API_BASE_URL = 'https://grade-installations-murray-dealtime.trycloudflare.com';
+
 console.log('API_BASE_URL (api.ts):', API_BASE_URL);
 
 export interface ChatResponse {
@@ -239,16 +240,22 @@ export const apiService = {
 
     async getUserByInitData(initData: string): Promise<UserResponse> {
         const url = `${API_BASE_URL}/users/users/?init_data=${encodeURIComponent(initData)}`;
+        console.log('Отправка запроса авторизации:', url);
         const res = await fetch(url, {
             method: 'GET',
             headers: {
                 'Content-Type': 'application/json',
             },
         });
+        console.log('Ответ сервера:', res.status, res.statusText);
         if (!res.ok) {
+            const errorData = await res.json().catch(() => ({}));
+            console.error('Ошибка авторизации:', errorData);
             throw res;
         }
-        return res.json();
+        const data = await res.json();
+        console.log('Успешный ответ:', data);
+        return data;
     },
 
     async registerUserByInitData(initData: string): Promise<UserResponse> {

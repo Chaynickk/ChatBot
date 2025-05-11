@@ -53,7 +53,7 @@ const Sidebar: React.FC<{
   open: boolean;
   onClose: () => void;
   projects: Array<{id: number, name: string}>;
-  chats: string[];
+  chats: Array<{id: number, title: string}>;
   onAddProject: () => void;
   onSelectChat: (idx: number) => void;
   selectedChat: number | null;
@@ -88,11 +88,11 @@ const Sidebar: React.FC<{
         <div style={{fontWeight: 700, fontSize: 16, margin: '8px 0'}}>Чаты</div>
         {chats.map((c, i) => (
           <div
-            key={c}
+            key={c.id}
             className={`sidebar-chat${selectedChat === i ? ' sidebar-chat--active' : ''}`}
             onClick={() => onSelectChat(i)}
           >
-            {c}
+            {c.title}
           </div>
         ))}
       </div>
@@ -162,6 +162,7 @@ const BranchIcon = () => (
 
 const Message: React.FC<{ message: any; isHovered?: boolean; onHover?: () => void; onLeave?: () => void; onReply?: () => void; onBranch?: () => void }> = ({ message, isHovered, onHover, onLeave, onReply, onBranch }) => {
   const isUser = message.role === 'user';
+  const isAssistant = message.role === 'assistant';
   const [copied, setCopied] = React.useState(false);
 
   const handleCopy = () => {
@@ -182,7 +183,8 @@ const Message: React.FC<{ message: any; isHovered?: boolean; onHover?: () => voi
     }
   }, [isHovered, copied]);
 
-  if (message.isThinking) {
+  // Если ассистент "печатает" (isThinking) и ещё нет текста — показываем точку
+  if (message.isThinking && (!message.content || message.content.length === 0)) {
     return (
       <div className="message thinking">
         <div className="loading-indicator">
@@ -198,19 +200,25 @@ const Message: React.FC<{ message: any; isHovered?: boolean; onHover?: () => voi
       onMouseEnter={onHover}
       onMouseLeave={onLeave}
     >
-      {!isUser && (
-        <div className="message-avatar assistant">AI</div>
-      )}
-      <div className="message-content">
+      {/* Аватарка только для пользователя (УБРАНО) */}
+      {/* {isUser && (
+        <div className="message-avatar user">U</div>
+      )} */}
+      {/* У ассистента (слева) аватарка и фон не отображаются */}
+      <div className="message-content" style={isAssistant ? { background: 'none', boxShadow: 'none', paddingLeft: 0, color: '#fff' } : {}}>
         <div className="message-header">
+          {/* Убираем надпись 'Ассистент' и время у ассистента */}
           <span className="message-sender">
-            {isUser ? 'Вы' : 'Ассистент'}
+            {isUser ? 'Вы' : ''}
           </span>
-          <span className="message-time">
-            {message.created_at ? new Date(message.created_at).toLocaleTimeString() : ''}
-          </span>
+          {/* Время только у пользователя */}
+          {isUser && (
+            <span className="message-time">
+              {message.created_at ? new Date(message.created_at).toLocaleTimeString() : ''}
+            </span>
+          )}
         </div>
-        <div className="message-text">
+        <div className="message-text" style={isAssistant ? { color: '#fff' } : {}}>
           {message.content || ''}
         </div>
       </div>
@@ -255,7 +263,7 @@ export const ChatScreen: React.FC = () => {
   const [wavesEnabled, setWavesEnabled] = useState(true);
   const [showSettingsMenu, setShowSettingsMenu] = useState(false);
   const { user, offlineMessage } = useUser();
-  const { chats: chatsContext, selectChat, activeChatId } = useChats();
+  const { chats, loadChats, selectChat, activeChatId } = useChats();
   const { messages, loadMessages, sendMessage } = useMessages();
   const [hoveredMessageId, setHoveredMessageId] = useState<number | null>(null);
   const [replyTo, setReplyTo] = useState<any | null>(null);
@@ -312,6 +320,12 @@ export const ChatScreen: React.FC = () => {
       localStorage.setItem('selectedModelId', String(modelMap[selectedModel.name] || 1));
     }
   }, [selectedModel]);
+
+  useEffect(() => {
+    if (sidebarOpen) {
+      loadChats();
+    }
+  }, [sidebarOpen, loadChats]);
 
   const handleCreateProject = async (name: string) => {
     try {
@@ -376,10 +390,10 @@ export const ChatScreen: React.FC = () => {
         open={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
         projects={projects}
-        chats={chatsContext.map(c => c.title)}
+        chats={chats}
         onAddProject={() => setProjectModalOpen(true)}
-        onSelectChat={idx => { selectChat(chatsContext[idx]?.id); setInput(''); }}
-        selectedChat={chatsContext.findIndex(c => c.id === activeChatId)}
+        onSelectChat={idx => { selectChat(chats[idx]?.id); setInput(''); }}
+        selectedChat={chats.findIndex(c => c.id === activeChatId)}
       />
       <ProjectModal
         open={projectModalOpen}
@@ -539,8 +553,8 @@ export const ChatScreen: React.FC = () => {
                 onBranch={() => { setBranchFrom(message); setReplyTo(null); }}
               />
             ))}
-            {/* Индикатор загрузки только если нет сообщения isThinking */}
-            {loading && !messages.some(m => m.isThinking) && (
+            {/* Индикатор загрузки только если нет сообщения isThinking и ассистент ещё не начал печатать */}
+            {loading && !messages.some(m => m.isThinking || (m.role === 'assistant' && m.content && m.content.length > 0)) && (
               <div className="message">
                 <div className="message-content loading-message-content">
                   <div className="loading-indicator">

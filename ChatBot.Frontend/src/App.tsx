@@ -54,7 +54,7 @@ interface AppContentProps {
 
 const AppContent: React.FC<AppContentProps> = ({ notification, timerWidth }) => {
   const [isTelegramWebApp, setIsTelegramWebApp] = useState(false);
-  const { login, isLoading } = useUser();
+  const { login } = useUser();
   const [isInitialized, setIsInitialized] = useState(false);
 
   useEffect(() => {
@@ -122,28 +122,6 @@ const AppContent: React.FC<AppContentProps> = ({ notification, timerWidth }) => 
           <div style={{width: '100%', height: 4, background: 'rgba(255,255,255,0.18)', borderRadius: 2, marginTop: 8, overflow: 'hidden'}}>
             <div style={{height: '100%', width: `${timerWidth}%`, background: notification.type === 'success' ? '#2ecc40' : '#fff', borderRadius: 2, transition: 'width 0.1s linear'}} />
           </div>
-        </div>
-      )}
-      {isLoading && (
-        <div style={{
-          position: 'fixed',
-          top: '20px',
-          left: '50%',
-          transform: 'translateX(-50%)',
-          background: '#23242a',
-          color: 'white',
-          padding: '14px 28px 18px 22px',
-          borderRadius: '10px',
-          boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
-          zIndex: 1000,
-          display: 'flex',
-          alignItems: 'center',
-          gap: '12px',
-          minWidth: 220,
-          fontSize: 18,
-          fontWeight: 500,
-        }}>
-          <span>Выполняется авторизация...</span>
         </div>
       )}
       <ChatScreen />

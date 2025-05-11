@@ -136,24 +136,29 @@ export const MessagesProvider: React.FC<{ children: ReactNode }> = ({ children }
               const json = JSON.parse(line.slice(5));
               if (json.type === 'chunk' && json.data) {
                 if (firstChunk) {
-                  // Убираем пульсирующую точку
+                  // Удаляем точку (isThinking) и создаём новое сообщение ассистента с первым текстом
+                  botText += json.data;
+                  setMessages(prev => [
+                    ...prev.filter(msg => msg.id !== tempBotMsgId),
+                    {
+                      id: tempBotMsgId,
+                      role: 'assistant',
+                      content: botText,
+                      isThinking: false,
+                      created_at: new Date().toISOString(),
+                    }
+                  ]);
+                  firstChunk = false;
+                } else {
+                  botText += json.data;
                   setMessages(prev =>
                     prev.map(msg =>
                       msg.id === tempBotMsgId
-                        ? { ...msg, isThinking: false }
+                        ? { ...msg, content: botText }
                         : msg
                     )
                   );
-                  firstChunk = false;
                 }
-                botText += json.data;
-                setMessages(prev =>
-                  prev.map(msg =>
-                    msg.id === tempBotMsgId
-                      ? { ...msg, content: botText }
-                      : msg
-                  )
-                );
               }
               if (json.type === 'assistant_message' && json.data) {
                 // Финальное сообщение ассистента (можно обновить, если нужно)
