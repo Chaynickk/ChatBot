@@ -1,8 +1,8 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { API_URL } from '../config';
+import { API_BASE_URL, apiService } from '../services/api';
 
 interface User {
-  telegram_id: number;
+  telegram_id: string;
   username: string;
   full_name: string;
   is_plus: boolean;
@@ -13,6 +13,8 @@ interface UserContextType {
   initData: string | null;
   login: (initData: string) => Promise<void>;
   logout: () => void;
+  backendAvailable: boolean;
+  offlineMessage: string | null;
 }
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
@@ -23,47 +25,156 @@ export const useUser = () => {
   return ctx;
 };
 
-export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+interface UserProviderProps {
+  children: ReactNode;
+  onNotification: (notification: { type: 'success' | 'error'; message: string } | null) => void;
+  onChatsLoad?: () => void;
+}
+
+export const UserProvider: React.FC<UserProviderProps> = ({ children, onNotification, onChatsLoad }) => {
   const [user, setUser] = useState<User | null>(null);
   const [initData, setInitData] = useState<string | null>(null);
+  const [backendAvailable, setBackendAvailable] = useState(true);
+  const [offlineMessage, setOfflineMessage] = useState<string | null>(null);
+
+  // Проверка доступности бэкенда
+  useEffect(() => {
+    (async () => {
+      try {
+        console.log('Проверка доступности бэкенда:', `${API_BASE_URL}/ping`);
+        const res = await fetch(`${API_BASE_URL}/ping`);
+        console.log('Ответ от бэкенда:', res.status, res.statusText);
+        if (!res.ok) {
+          console.error('Бэкенд вернул ошибку:', res.status, res.statusText);
+          throw new Error(`HTTP error! status: ${res.status}`);
+        }
+        setBackendAvailable(true);
+        setOfflineMessage(null);
+        console.log('Бэкенд доступен');
+      } catch (error: any) {
+        console.error('Ошибка при проверке доступности бэкенда:', error);
+        const errorMessage = `Бэкенд недоступен (${error.message || 'неизвестная ошибка'}). Включён офлайн-режим.`;
+        setBackendAvailable(false);
+        setOfflineMessage(errorMessage);
+        onNotification({
+          type: 'error',
+          message: errorMessage
+        });
+        // Fallback: временный пользователь
+        setUser({
+          telegram_id: '1',
+          username: 'local',
+          full_name: 'Local User',
+          is_plus: false,
+        });
+      }
+    })();
+  }, []);
 
   // login: проверяет или регистрирует пользователя
   const login = async (initData: string) => {
+    console.log('Начало процесса авторизации');
+    console.log('API_BASE_URL:', API_BASE_URL);
     setInitData(initData);
+    localStorage.setItem('initData', initData);
     try {
-      // Пробуем получить пользователя
-      const res = await fetch(`${API_URL}/users/users/?init_data=${encodeURIComponent(initData)}`);
-      if (res.ok) {
-        const data = await res.json();
-        setUser(data);
-      } else {
-        // Если не найден — пробуем зарегистрировать
-        const regRes = await fetch(`${API_URL}/users/users/?init_data=${encodeURIComponent(initData)}`, { 
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          }
+      console.log('Попытка получить пользователя по initData');
+      const user = await apiService.getUserByInitData(initData);
+      if (user && (user.telegram_id || user.id)) {
+        console.log('Пользователь успешно получен:', user);
+        setUser(user as User);
+        if (user.telegram_id) {
+          localStorage.setItem('user_id', user.telegram_id);
+        }
+        onNotification({
+          type: 'success',
+          message: 'Авторизация успешно выполнена'
         });
-        if (regRes.ok) {
-          const data = await regRes.json();
-          setUser(data);
-        } else {
+        if (onChatsLoad) {
+          setTimeout(onChatsLoad, 2000); // Задержка 2 секунды
+        }
+        return;
+      }
+    } catch (error: any) {
+      console.error('Ошибка при получении пользователя:', error);
+      console.error('Детали ошибки:', {
+        status: error.status,
+        statusText: error.statusText,
+        message: error.message,
+        stack: error.stack
+      });
+      // Проверяем, что ошибка — именно отсутствие пользователя (404)
+      if (error.status === 404) {
+        try {
+          console.log('Попытка зарегистрировать нового пользователя');
+          const newUser = await apiService.registerUserByInitData(initData);
+          if (newUser && (newUser.telegram_id || newUser.id)) {
+            console.log('Новый пользователь успешно зарегистрирован:', newUser);
+            setUser(newUser as User);
+            if (newUser.telegram_id) {
+              localStorage.setItem('user_id', newUser.telegram_id);
+            }
+            onNotification({
+              type: 'success',
+              message: 'Регистрация успешно выполнена'
+            });
+            if (onChatsLoad) {
+              setTimeout(onChatsLoad, 2000); // Задержка 2 секунды
+            }
+            return;
+          }
+        } catch (regError: any) {
+          console.error('Ошибка при регистрации пользователя:', regError);
+          console.error('Детали ошибки регистрации:', {
+            status: regError.status,
+            statusText: regError.statusText,
+            message: regError.message,
+            stack: regError.stack
+          });
+          const errorMessage = regError.status 
+            ? `Ошибка авторизации (${regError.status}): ${regError.statusText}`
+            : 'Ошибка авторизации: Не удалось зарегистрировать пользователя';
           setUser(null);
+          setOfflineMessage(errorMessage);
+          setBackendAvailable(false);
+          onNotification({
+            type: 'error',
+            message: errorMessage
+          });
+          throw regError;
         }
       }
-    } catch (error) {
-      console.error('Login error:', error);
+      // Любая другая ошибка — показываем ошибку авторизации
+      const errorMessage = error.status 
+        ? `Ошибка авторизации (${error.status}): ${error.statusText}`
+        : `Ошибка авторизации: ${error.message || 'Не удалось получить данные пользователя'}`;
       setUser(null);
+      setOfflineMessage(errorMessage);
+      setBackendAvailable(false);
+      onNotification({
+        type: 'error',
+        message: errorMessage
+      });
+      throw error;
     }
   };
 
   const logout = () => {
     setUser(null);
     setInitData(null);
+    localStorage.removeItem('initData');
+    localStorage.removeItem('user_id');
   };
 
   return (
-    <UserContext.Provider value={{ user, initData, login, logout }}>
+    <UserContext.Provider value={{ 
+      user, 
+      initData, 
+      login, 
+      logout, 
+      backendAvailable, 
+      offlineMessage,
+    }}>
       {children}
     </UserContext.Provider>
   );

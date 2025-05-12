@@ -1,31 +1,27 @@
-// @ts-ignore
-// eslint-disable-next-line
-interface ImportMeta {
-    env: {
-        VITE_API_URL?: string;
-        [key: string]: any;
-    };
-}
+// Удаляю prompt и sessionStorage
+// const sessionBackendUrl = sessionStorage.getItem('backendUrl');
+// if (!sessionBackendUrl) {
+//   const backendUrl = prompt('Введите адрес бэкенда:', import.meta.env.VITE_API_URL || 'http://localhost:5000');
+//   if (backendUrl) {
+//     sessionStorage.setItem('backendUrl', backendUrl);
+//   }
+// }
 
-function getBackendUrl(): string {
-    // Сначала пробуем из localStorage
-    const url = localStorage.getItem('backend_url');
-    if (url) return url;
-    // Если нет, пробуем из переменной окружения или дефолт
-    return (import.meta as any).env.VITE_API_URL || 'http://localhost:8000';
-}
+// Заменяю загрузку из env на жёсткую константу
+export const API_BASE_URL = 'https://variables-ata-reserve-those.trycloudflare.com';
 
-export function setBackendUrl(url: string) {
-    localStorage.setItem('backend_url', url);
-}
+console.log('API_BASE_URL (api.ts):', API_BASE_URL);
 
-export function clearBackendUrl() {
-    localStorage.removeItem('backend_url');
-}
-
-export function getSavedBackendUrl() {
-    return localStorage.getItem('backend_url');
-}
+// Функция для проверки доступности сервера
+export const checkServerAvailability = async () => {
+    try {
+        const response = await fetch(`${API_BASE_URL}/ping`);
+        return response.ok;
+    } catch (error) {
+        console.error('Ошибка при проверке доступности сервера:', error);
+        return false;
+    }
+};
 
 export interface ChatResponse {
     response: string;
@@ -43,9 +39,28 @@ export type MessageStreamEvent =
     | { type: 'chunk'; data: string }
     | { type: 'assistant_message'; data: any };
 
+export interface ProjectResponse {
+    id: number;
+    name: string;
+    user_id: number;
+    created_at: string;
+    updated_at: string;
+}
+
+export interface UserResponse {
+    id?: number;
+    telegram_id: string;
+    username?: string;
+    full_name?: string;
+    is_plus?: boolean;
+    created_at?: string;
+    updated_at?: string;
+    custom_prompt?: string;
+}
+
 export const apiService = {
     async sendToGigaChat(message: string): Promise<ChatResponse> {
-        const response = await fetch(`${getBackendUrl()}/gigachat`, {
+        const response = await fetch(`${API_BASE_URL}/gigachat`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -61,7 +76,11 @@ export const apiService = {
     },
 
     async sendToYandexGPT(message: string): Promise<ReadableStream> {
-        const response = await fetch(`${getBackendUrl()}/chat/stream?message=${encodeURIComponent(message)}`);
+        const response = await fetch(`${API_BASE_URL}/chat/stream?message=${encodeURIComponent(message)}`, {
+            headers: {
+                'Content-Type': 'application/json',
+            },
+        });
         
         if (!response.ok) {
             throw new Error('Ошибка при отправке сообщения');
@@ -71,7 +90,7 @@ export const apiService = {
     },
 
     async sendToGPT4oMini(message: string): Promise<ChatResponse> {
-        const response = await fetch(`${getBackendUrl()}/gpt4omini`, {
+        const response = await fetch(`${API_BASE_URL}/gpt4omini`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -90,12 +109,14 @@ export const apiService = {
         body: SendMessageRequest,
         onEvent: (event: MessageStreamEvent) => void
     ) {
-        const response = await fetch(`${getBackendUrl()}/messages/messages/`, {
+        const formData = new FormData();
+        formData.append('chat_id', String(body.chat_id));
+        formData.append('content', body.content);
+        // role и parent_id не добавляем
+
+        const response = await fetch(`${API_BASE_URL}/messages/`, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(body),
+            body: formData,
         });
         if (!response.body) throw new Error('Нет потока данных');
         const reader = response.body.getReader();
@@ -120,14 +141,156 @@ export const apiService = {
         }
     },
 
-    async createProject(name: string, user_id: number = 0) {
-        const url = `${getBackendUrl()}/api/projects/`;
+    async createProject(name: string, user_id: number = 0): Promise<ProjectResponse> {
+        const url = `${API_BASE_URL}/api/projects/`;
+        try {
+            const res = await fetch(url, {
+                method: 'POST',
+                headers: { 
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ name, user_id }),
+            });
+            
+            if (!res.ok) {
+                const errorData = await res.json().catch(() => ({}));
+                console.error('Ошибка при создании проекта:', errorData);
+                throw new Error(`Ошибка при создании проекта: ${res.status} ${res.statusText}`);
+            }
+            
+            const data = await res.json();
+            console.log('Проект успешно создан:', data);
+            return data;
+        } catch (error) {
+            console.error('Ошибка при создании проекта:', error);
+            throw error;
+        }
+    },
+
+    async createChat({
+        user_id,
+        project_id,
+        folder_id = null,
+        title = 'Новый чат',
+        model_id = 1,
+        parent_chat_id = null,
+        parent_message_id = null
+    }: {
+        user_id: number,
+        project_id?: number,
+        folder_id?: number | null,
+        title?: string,
+        model_id?: number,
+        parent_chat_id?: number | null,
+        parent_message_id?: number | null
+    }) {
+        const url = `${API_BASE_URL}/api/chats/`;
+        const body = {
+            user_id,
+            project_id,
+            folder_id,
+            title,
+            model_id,
+            parent_chat_id,
+            parent_message_id
+        };
+        console.log('Создание чата, тело запроса:', body);
         const res = await fetch(url, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name, user_id }),
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Telegram ${user_id}`
+            },
+            body: JSON.stringify(body),
         });
-        if (!res.ok) throw new Error('Ошибка при создании проекта');
+        if (!res.ok) {
+            const errorData = await res.json().catch(() => ({}));
+            console.error('Ошибка при создании чата:', errorData);
+            throw new Error(`Ошибка при создании чата: ${res.status} ${res.statusText}`);
+        }
+        const data = await res.json();
+        console.log('Чат успешно создан:', data);
+        return data.id;
+    },
+
+    async createUser(telegram_id: string): Promise<UserResponse> {
+        const url = `${API_BASE_URL}/users/users/`;
+        try {
+            const res = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ telegram_id }),
+            });
+            if (!res.ok) {
+                const errorData = await res.json().catch(() => ({}));
+                console.error('Ошибка при создании пользователя:', errorData);
+                throw new Error(`Ошибка при создании пользователя: ${res.status} ${res.statusText}`);
+            }
+            const data = await res.json();
+            console.log('Пользователь успешно создан:', data);
+            return data;
+        } catch (error) {
+            console.error('Ошибка при создании пользователя:', error);
+            throw error;
+        }
+    },
+
+    getInitData(): { user?: { id: string } } {
+        const urlParams = new URLSearchParams(window.location.search);
+        const initData = urlParams.get('initData');
+        if (!initData) return {};
+        try {
+            const data = JSON.parse(decodeURIComponent(initData));
+            return data;
+        } catch (e) {
+            console.error('Ошибка при парсинге InitData:', e);
+            return {};
+        }
+    },
+
+    async getUserByInitData(initData: string): Promise<UserResponse> {
+        const url = `${API_BASE_URL}/users/users/?init_data=${encodeURIComponent(initData)}`;
+        console.log('Отправка запроса авторизации:', url);
+        const res = await fetch(url, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+        });
+        console.log('Ответ сервера:', res.status, res.statusText);
+        if (!res.ok) {
+            const errorData = await res.json().catch(() => ({}));
+            console.error('Ошибка авторизации:', errorData);
+            throw res;
+        }
+        const data = await res.json();
+        console.log('Успешный ответ:', data);
+        return data;
+    },
+
+    async registerUserByInitData(initData: string): Promise<UserResponse> {
+        const url = `${API_BASE_URL}/users/users/?init_data=${encodeURIComponent(initData)}`;
+        const res = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+        });
+        if (!res.ok) {
+            throw res;
+        }
         return res.json();
+    },
+
+    async getLastChatIdByTelegramId(telegram_id: number): Promise<number | null> {
+        const res = await fetch(`${API_BASE_URL}/api/chats/?telegram_id=${telegram_id}`);
+        if (!res.ok) return null;
+        const data = await res.json();
+        if (Array.isArray(data) && data.length > 0) {
+            return data[data.length - 1].id;
+        }
+        return null;
     }
 }; 
