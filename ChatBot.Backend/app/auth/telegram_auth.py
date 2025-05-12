@@ -1,23 +1,16 @@
-import hashlib
-import hmac
-import base64
-import os
 from typing import Dict
 from fastapi import Depends, HTTPException, Header, Request
 from app.schemas.auth import TelegramAuth
-from urllib.parse import parse_qsl
 import logging
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.dependencies import get_async_session
 from app.crud.user import get_user_by_telegram_id
 from app.models.user import User
-
-# Используем значение по умолчанию, если переменная окружения не установлена
-SECRET_KEY = os.getenv("TELEGRAM_BOT_TOKEN", "8090019258:AAHQDpY3eNaGSVBRT_05sREt_Mz5zt8i2Ew")
+from app.config import BOT_TOKEN
 
 logging.basicConfig(level=logging.INFO)
-logging.info(f"[telegram_auth] TELEGRAM_BOT_TOKEN loaded: {SECRET_KEY is not None}")
-logging.info(f"[telegram_auth] TELEGRAM_BOT_TOKEN value: {SECRET_KEY}")
+logging.info(f"[telegram_auth] TELEGRAM_BOT_TOKEN loaded: {BOT_TOKEN is not None}")
+logging.info(f"[telegram_auth] TELEGRAM_BOT_TOKEN value: {BOT_TOKEN}")
 
 
 def check_telegram_auth(init_data: str) -> Dict:

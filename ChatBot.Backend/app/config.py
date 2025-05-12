@@ -1,9 +1,11 @@
-from pydantic import BaseSettings
+import os
+from dotenv import load_dotenv
 
-class Settings(BaseSettings):
-    ADMIN_TELEGRAM_ID: int
+load_dotenv()
 
-    class Config:
-        env_file = ".env"
+# Получаем значения из переменных окружения
+ADMIN_TELEGRAM_ID = int(os.getenv("ADMIN_TELEGRAM_ID", "0"))  # Опциональный параметр
+BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 
-settings = Settings()
+if not BOT_TOKEN:
+    raise ValueError("TELEGRAM_BOT_TOKEN environment variable is not set")

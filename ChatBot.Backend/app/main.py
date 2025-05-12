@@ -20,6 +20,7 @@ from fastapi.exception_handlers import RequestValidationError
 from fastapi.exceptions import HTTPException
 import logging
 import sys
+from app.config import BOT_TOKEN
 
 load_dotenv()
 
@@ -35,11 +36,6 @@ logging.basicConfig(
 
 # Получаем логгер для этого модуля
 logger = logging.getLogger(__name__)
-
-# Получаем токен бота из переменных окружения
-BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
-if not BOT_TOKEN:
-    raise ValueError("TELEGRAM_BOT_TOKEN environment variable is not set")
 
 # Создаем экземпляр бота
 bot = telebot.TeleBot(BOT_TOKEN)
