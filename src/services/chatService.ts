@@ -1,4 +1,4 @@
-import { BACKEND_URL } from '../config';
+export const BACKEND_URL = 'https://postcards-absorption-years-display.trycloudflare.com';
 
 interface ChatCreate {
   user_id: number;

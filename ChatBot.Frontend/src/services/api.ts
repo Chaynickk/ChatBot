@@ -8,7 +8,7 @@
 // }
 
 // Заменяю загрузку из env на жёсткую константу
-export const API_BASE_URL = 'https://albert-engineers-vegas-per.trycloudflare.com';
+export const API_BASE_URL = 'https://postcards-absorption-years-display.trycloudflare.com';
 
 console.log('API_BASE_URL (api.ts):', API_BASE_URL);
 

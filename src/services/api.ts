@@ -1,6 +1,4 @@
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
-const PASSWORD = "141.101.142.1";
-const AUTH_HEADER = "Basic " + btoa("user:" + PASSWORD);
+const API_BASE_URL = 'https://postcards-absorption-years-display.trycloudflare.com/api';
 
 export interface SendMessageRequest {
     chat_id: number;
@@ -17,11 +15,10 @@ export const apiService = {
         onEvent: (event: MessageStreamEvent) => void
     ) {
         const baseUrl = API_BASE_URL.replace(/\/$/, "");
-        const url = `${baseUrl}/messages/messages/`;
+        const url = `${baseUrl}/messages/`;
         const response = await fetch(url, {
             method: 'POST',
             headers: {
-                "Authorization": AUTH_HEADER,
                 "Content-Type": "application/json",
             },
             body: JSON.stringify({
