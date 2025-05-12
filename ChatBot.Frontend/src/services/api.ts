@@ -8,7 +8,7 @@
 // }
 
 // Заменяю загрузку из env на жёсткую константу
-export const API_BASE_URL = 'https://grade-installations-murray-dealtime.trycloudflare.com';
+export const API_BASE_URL = 'https://albert-engineers-vegas-per.trycloudflare.com';
 
 console.log('API_BASE_URL (api.ts):', API_BASE_URL);
 
@@ -131,7 +131,7 @@ export const apiService = {
     },
 
     async createProject(name: string, user_id: number = 0): Promise<ProjectResponse> {
-        const url = `${API_BASE_URL}/api/projects/`;
+        const url = `${API_BASE_URL}/projects/`;
         try {
             const res = await fetch(url, {
                 method: 'POST',
@@ -173,7 +173,7 @@ export const apiService = {
         parent_chat_id?: number | null,
         parent_message_id?: number | null
     }) {
-        const url = `${API_BASE_URL}/api/chats/`;
+        const url = `${API_BASE_URL}/chats/`;
         const body = {
             user_id,
             project_id,
@@ -202,7 +202,7 @@ export const apiService = {
     },
 
     async createUser(telegram_id: string): Promise<UserResponse> {
-        const url = `${API_BASE_URL}/api/users/`;
+        const url = `${API_BASE_URL}/users/`;
         try {
             const res = await fetch(url, {
                 method: 'POST',
@@ -273,7 +273,7 @@ export const apiService = {
     },
 
     async getLastChatIdByTelegramId(telegram_id: number): Promise<number | null> {
-        const res = await fetch(`${API_BASE_URL}/api/chats/?telegram_id=${telegram_id}`);
+        const res = await fetch(`${API_BASE_URL}/chats/?telegram_id=${telegram_id}`);
         if (!res.ok) return null;
         const data = await res.json();
         if (Array.isArray(data) && data.length > 0) {

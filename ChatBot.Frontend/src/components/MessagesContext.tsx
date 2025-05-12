@@ -16,6 +16,7 @@ interface MessagesContextType {
   messages: Message[];
   loadMessages: () => Promise<void>;
   sendMessage: (content: string) => Promise<void>;
+  setMessages: React.Dispatch<React.SetStateAction<Message[]>>;
 }
 
 const MessagesContext = createContext<MessagesContextType | undefined>(undefined);
@@ -42,6 +43,7 @@ export const MessagesProvider: React.FC<{ children: ReactNode }> = ({ children }
 
   const loadMessages = async () => {
     if (!activeChatId) return;
+    console.log('Загрузка сообщений для чата:', activeChatId);
     try {
       const res = await fetch(`${API_BASE_URL}/api/messages/?chat_id=${activeChatId}`);
       if (res.ok) {
@@ -58,6 +60,7 @@ export const MessagesProvider: React.FC<{ children: ReactNode }> = ({ children }
 
   const sendMessage = async (content: string) => {
     const tempUserId = Date.now();
+    const tempBotMsgId = tempUserId + 1;
     const userMessage = {
       id: tempUserId,
       role: 'user',
@@ -74,11 +77,12 @@ export const MessagesProvider: React.FC<{ children: ReactNode }> = ({ children }
         }
         const title = 'Новый чат';
         const model_id = selectedModelId || 1;
-        chatId = await apiService.createChat({ 
+        chatId = await apiService.createChat({
           user_id: Number(user.telegram_id),
-          title, 
-          model_id 
+          title,
+          model_id
         });
+        if (!chatId) throw new Error('Не удалось создать новый чат');
       } catch (e) {
         console.error('Ошибка создания чата:', e);
         setMessages(prev => [
@@ -94,18 +98,20 @@ export const MessagesProvider: React.FC<{ children: ReactNode }> = ({ children }
       }
     }
 
-    // Добавляем временное сообщение ассистента с пульсирующей точкой
-    const tempBotMsgId = tempUserId + 1;
-    setMessages(prev => [
-      ...prev,
-      {
-        id: tempBotMsgId,
-        role: 'assistant',
-        content: '',
-        isThinking: true,
-        created_at: new Date().toISOString(),
-      }
-    ]);
+    if (!chatId) {
+      setMessages(prev => [
+        ...prev,
+        {
+          role: 'assistant',
+          content: 'Ошибка: не удалось получить chat_id для отправки сообщения.',
+          created_at: new Date().toISOString(),
+          id: tempUserId + 5
+        }
+      ]);
+      return;
+    }
+
+    console.log('Отправка сообщения:', { chatId, content });
 
     const formData = new FormData();
     formData.append('chat_id', String(chatId));
@@ -198,7 +204,7 @@ export const MessagesProvider: React.FC<{ children: ReactNode }> = ({ children }
   };
 
   return (
-    <MessagesContext.Provider value={{ messages, loadMessages, sendMessage }}>
+    <MessagesContext.Provider value={{ messages, loadMessages, sendMessage, setMessages }}>
       {children}
     </MessagesContext.Provider>
   );

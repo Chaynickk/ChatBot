@@ -55,10 +55,12 @@ const Sidebar: React.FC<{
   projects: Array<{id: number, name: string}>;
   chats: Array<{id: number, title: string}>;
   onAddProject: () => void;
-  onSelectChat: (idx: number) => void;
+  onSelectChat: (chatId: number) => void;
   selectedChat: number | null;
-}> = ({ open, onClose, projects, chats, onAddProject, onSelectChat, selectedChat }) => {
+  onNewChat: () => void;
+}> = ({ open, onClose, projects, chats, onAddProject, onSelectChat, selectedChat, onNewChat }) => {
   const [search, setSearch] = useState('');
+  
   return (
     <div className={`sidebar-drawer${open ? ' sidebar-drawer--open' : ''}`}> 
       <div className="sidebar-search-row">
@@ -85,12 +87,22 @@ const Sidebar: React.FC<{
         ))}
       </div>
       <div className="sidebar-section" style={{marginTop: 24}}>
-        <div style={{fontWeight: 700, fontSize: 16, margin: '8px 0'}}>Чаты</div>
-        {chats.map((c, i) => (
+        <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '8px 0'}}>
+          <span style={{fontWeight: 700, fontSize: 16}}>Чаты</span>
+          <button 
+            className="sidebar-add-btn" 
+            onClick={onNewChat}
+            style={{width: 32, height: 32, padding: 0}}
+            title="Создать новый чат"
+          >
+            <PlusIcon />
+          </button>
+        </div>
+        {chats.map((c) => (
           <div
             key={c.id}
-            className={`sidebar-chat${selectedChat === i ? ' sidebar-chat--active' : ''}`}
-            onClick={() => onSelectChat(i)}
+            className={`sidebar-chat${selectedChat === c.id ? ' sidebar-chat--active' : ''}`}
+            onClick={() => onSelectChat(c.id)}
           >
             {c.title}
           </div>
@@ -264,7 +276,7 @@ export const ChatScreen: React.FC = () => {
   const [showSettingsMenu, setShowSettingsMenu] = useState(false);
   const { user, offlineMessage } = useUser();
   const { chats, loadChats, selectChat, activeChatId } = useChats();
-  const { messages, loadMessages, sendMessage } = useMessages();
+  const { messages, loadMessages, sendMessage, setMessages } = useMessages();
   const [hoveredMessageId, setHoveredMessageId] = useState<number | null>(null);
   const [replyTo, setReplyTo] = useState<any | null>(null);
   const [branchFrom, setBranchFrom] = useState<any | null>(null);
@@ -325,7 +337,7 @@ export const ChatScreen: React.FC = () => {
     if (sidebarOpen) {
       loadChats();
     }
-  }, [sidebarOpen, loadChats]);
+  }, [sidebarOpen]);
 
   const handleCreateProject = async (name: string) => {
     try {
@@ -392,8 +404,9 @@ export const ChatScreen: React.FC = () => {
         projects={projects}
         chats={chats}
         onAddProject={() => setProjectModalOpen(true)}
-        onSelectChat={idx => { selectChat(chats[idx]?.id); setInput(''); }}
-        selectedChat={chats.findIndex(c => c.id === activeChatId)}
+        onSelectChat={chatId => { selectChat(chatId); setInput(''); }}
+        selectedChat={activeChatId}
+        onNewChat={() => { selectChat(null); setInput(''); setMessages([]); setSidebarOpen(false); }}
       />
       <ProjectModal
         open={projectModalOpen}

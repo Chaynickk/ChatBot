@@ -1,12 +1,13 @@
 import React, { createContext, useContext, useState, ReactNode } from 'react';
 import { useUser } from './UserContext';
-import { apiService } from '../services/api';
+import { apiService, API_BASE_URL } from '../services/api';
 
 export interface Chat {
   id: number;
   title: string;
   project_id?: number;
-  // другие поля по необходимости
+  created_at?: string;
+  updated_at?: string;
 }
 
 interface ChatsContextType {
@@ -14,7 +15,7 @@ interface ChatsContextType {
   activeChatId: number | null;
   loadChats: () => Promise<void>;
   createChat: (title?: string, project_id?: number, model_id?: number) => Promise<number | null>;
-  selectChat: (id: number) => void;
+  selectChat: (id: number | null) => void;
 }
 
 const ChatsContext = createContext<ChatsContextType | undefined>(undefined);
@@ -25,21 +26,51 @@ export const useChats = () => {
   return ctx;
 };
 
-export const ChatsProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+interface ChatsProviderProps {
+  children: ReactNode;
+  onNotification?: (notification: { type: 'success' | 'error'; message: string } | null) => void;
+}
+
+export const ChatsProvider: React.FC<ChatsProviderProps> = ({ children, onNotification }) => {
   const { user } = useUser();
   const [chats, setChats] = useState<Chat[]>([]);
   const [activeChatId, setActiveChatId] = useState<number | null>(null);
-
-  const AUTH_HEADER = "Basic 141.101.142.1";
+  const [isLoading, setIsLoading] = useState(false);
 
   const loadChats = async () => {
-    if (!user) return;
-    const res = await fetch(`/api/chats/?telegram_id=${user.telegram_id}`, {
-      headers: { 'Authorization': AUTH_HEADER }
+    if (!user || isLoading) return;
+    try {
+      setIsLoading(true);
+      const res = await fetch(`${API_BASE_URL}/api/chats/?telegram_id=${user.telegram_id}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        }
     });
+      
     if (res.ok) {
       const data = await res.json();
       setChats(data);
+        onNotification?.({
+          type: 'success',
+          message: 'Список чатов успешно загружен'
+        });
+      } else {
+        const errorData = await res.json().catch(() => ({}));
+        console.error('Ошибка при загрузке чатов:', errorData);
+        onNotification?.({
+          type: 'error',
+          message: `Ошибка при загрузке чатов: ${res.status} ${res.statusText}`
+        });
+      }
+    } catch (error) {
+      console.error('Ошибка при загрузке чатов:', error);
+      onNotification?.({
+        type: 'error',
+        message: 'Ошибка при загрузке чатов. Пожалуйста, попробуйте позже.'
+      });
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -60,15 +91,23 @@ export const ChatsProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       });
       setChats(prev => [chat, ...prev]);
       setActiveChatId(chat.id);
+      onNotification?.({
+        type: 'success',
+        message: 'Чат успешно создан'
+      });
       console.log('Чат успешно создан:', chat);
       return chat.id;
     } catch (e) {
       console.error('Ошибка при создании чата:', e);
+      onNotification?.({
+        type: 'error',
+        message: 'Ошибка при создании чата. Пожалуйста, попробуйте позже.'
+      });
       return null;
     }
   };
 
-  const selectChat = (id: number) => {
+  const selectChat = (id: number | null) => {
     setActiveChatId(id);
   };
 

@@ -40,13 +40,25 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children, onNotifica
   useEffect(() => {
     (async () => {
       try {
+        console.log('Проверка доступности бэкенда:', `${API_BASE_URL}/ping`);
         const res = await fetch(`${API_BASE_URL}/ping`);
-        if (!res.ok) throw new Error();
+        console.log('Ответ от бэкенда:', res.status, res.statusText);
+        if (!res.ok) {
+          console.error('Бэкенд вернул ошибку:', res.status, res.statusText);
+          throw new Error(`HTTP error! status: ${res.status}`);
+        }
         setBackendAvailable(true);
         setOfflineMessage(null);
-      } catch {
+        console.log('Бэкенд доступен');
+      } catch (error: any) {
+        console.error('Ошибка при проверке доступности бэкенда:', error);
+        const errorMessage = `Бэкенд недоступен (${error.message || 'неизвестная ошибка'}). Включён офлайн-режим.`;
         setBackendAvailable(false);
-        setOfflineMessage('Бэкенд недоступен. Включён офлайн-режим.');
+        setOfflineMessage(errorMessage);
+        onNotification({
+          type: 'error',
+          message: errorMessage
+        });
         // Fallback: временный пользователь
         setUser({
           telegram_id: '1',
@@ -61,6 +73,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children, onNotifica
   // login: проверяет или регистрирует пользователя
   const login = async (initData: string) => {
     console.log('Начало процесса авторизации');
+    console.log('API_BASE_URL:', API_BASE_URL);
     setInitData(initData);
     localStorage.setItem('initData', initData);
     try {
@@ -80,6 +93,12 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children, onNotifica
       }
     } catch (error: any) {
       console.error('Ошибка при получении пользователя:', error);
+      console.error('Детали ошибки:', {
+        status: error.status,
+        statusText: error.statusText,
+        message: error.message,
+        stack: error.stack
+      });
       // Проверяем, что ошибка — именно отсутствие пользователя (404)
       if (error.status === 404) {
         try {
@@ -99,6 +118,12 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children, onNotifica
           }
         } catch (regError: any) {
           console.error('Ошибка при регистрации пользователя:', regError);
+          console.error('Детали ошибки регистрации:', {
+            status: regError.status,
+            statusText: regError.statusText,
+            message: regError.message,
+            stack: regError.stack
+          });
           const errorMessage = regError.status 
             ? `Ошибка авторизации (${regError.status}): ${regError.statusText}`
             : 'Ошибка авторизации: Не удалось зарегистрировать пользователя';
@@ -115,7 +140,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children, onNotifica
       // Любая другая ошибка — показываем ошибку авторизации
       const errorMessage = error.status 
         ? `Ошибка авторизации (${error.status}): ${error.statusText}`
-        : 'Ошибка авторизации: Не удалось получить данные пользователя';
+        : `Ошибка авторизации: ${error.message || 'Не удалось получить данные пользователя'}`;
       setUser(null);
       setOfflineMessage(errorMessage);
       setBackendAvailable(false);

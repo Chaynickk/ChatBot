@@ -9,7 +9,7 @@ import { useEffect, useState } from 'react';
 console.log('API_URL:', API_BASE_URL);
 
 // Основной компонент App
-function App() {
+export const App: React.FC = () => {
   const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [timerWidth, setTimerWidth] = useState(100);
 
@@ -35,16 +35,23 @@ function App() {
     }
   }, [notification]);
 
+  const handleNotification = (notification: { type: 'success' | 'error'; message: string } | null) => {
+    setNotification(notification);
+    if (notification) {
+      setTimeout(() => setNotification(null), 3000);
+    }
+  };
+
   return (
-    <UserProvider onNotification={setNotification}>
-      <ChatsProvider>
+    <UserProvider onNotification={handleNotification}>
+      <ChatsProvider onNotification={handleNotification}>
         <MessagesProvider>
           <AppContent notification={notification} timerWidth={timerWidth} />
         </MessagesProvider>
       </ChatsProvider>
     </UserProvider>
   );
-}
+};
 
 // Создаем отдельный компонент для инициализации
 interface AppContentProps {
@@ -128,5 +135,3 @@ const AppContent: React.FC<AppContentProps> = ({ notification, timerWidth }) => 
     </div>
   );
 };
-
-export default App;
