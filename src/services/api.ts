@@ -1,4 +1,4 @@
-const API_BASE_URL = 'https://postcards-absorption-years-display.trycloudflare.com/api';
+const API_BASE_URL = 'https://variables-ata-reserve-those.trycloudflare.com/api';
 
 export interface SendMessageRequest {
     chat_id: number;

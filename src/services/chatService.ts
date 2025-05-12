@@ -1,4 +1,4 @@
-export const BACKEND_URL = 'https://postcards-absorption-years-display.trycloudflare.com';
+export const BACKEND_URL = 'https://variables-ata-reserve-those.trycloudflare.com';
 
 interface ChatCreate {
   user_id: number;
