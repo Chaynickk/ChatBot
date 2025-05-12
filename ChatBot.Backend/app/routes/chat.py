@@ -18,12 +18,18 @@ from app.models.chat import Chat
 from fastapi.responses import StreamingResponse
 import json
 from datetime import datetime
+from app.models.model import Model
+from app.models.user import User
 
 router = APIRouter(prefix="/api", tags=["chats"])
 
 @router.post("/chats/", response_model=ChatOut)
 async def register_chat(chat: ChatCreate, db: AsyncSession = Depends(get_async_session)):
     try:
+        # Проверка существования пользователя
+        user = await db.get(User, chat.user_id)
+        if not user:
+            raise HTTPException(status_code=404, detail="Пользователь с таким user_id не найден. Сначала зарегистрируйте пользователя.")
         result = await create_chat(db, chat)
         return result
     except Exception as e:
@@ -33,32 +39,11 @@ async def register_chat(chat: ChatCreate, db: AsyncSession = Depends(get_async_s
 @router.get("/chats/", response_model=List[ChatOut])
 async def get_chats(
     telegram_id: int = Query(..., description="Telegram ID пользователя"),
-    auth_telegram_id: int = Depends(verify_telegram_token),
-    db: AsyncSession = Depends(get_async_session),
-    api_key: str = Security(api_key_header)
+    db: AsyncSession = Depends(get_async_session)
 ):
     """
     Получает чаты пользователя.
-
-    Args:
-        telegram_id: Telegram ID пользователя
-        auth_telegram_id: Telegram ID из заголовка авторизации
-        db: Сессия базы данных
-        api_key: ключ авторизации (для Swagger UI)
-
-    Returns:
-        List[ChatOut]: Список чатов пользователя
-
-    Raises:
-        HTTPException: Если пользователь не авторизован или не найден
     """
-    # Проверяем, что пользователь авторизован и запрашивает свои чаты
-    if auth_telegram_id != telegram_id:
-        raise HTTPException(
-            status_code=403,
-            detail="Нельзя получать чаты других пользователей"
-        )
-
     # Проверяем существование пользователя
     user = await get_user_by_telegram_id(db, telegram_id)
     if not user:
@@ -69,10 +54,7 @@ async def get_chats(
 
     # Получаем чаты пользователя
     query = select(Chat).where(Chat.user_id == telegram_id)
-
-    # Сортируем по дате создания (новые сверху)
     query = query.order_by(Chat.created_at.desc())
-
     result = await db.execute(query)
     return result.scalars().all()
 
@@ -171,6 +153,29 @@ async def create_chat_branch(
     except Exception as e:
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Ошибка при создании ветки чата: {str(e)}")
+
+@router.patch("/chats/{chat_id}/set_model")
+async def set_chat_model(chat_id: int, model_id: int, db: AsyncSession = Depends(get_async_session)):
+    # Получаем чат
+    chat = await db.get(Chat, chat_id)
+    if not chat:
+        raise HTTPException(status_code=404, detail="Чат не найден")
+    # Получаем пользователя
+    user = await db.get(User, chat.user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="Пользователь не найден")
+    # Получаем модель
+    model = await db.get(Model, model_id)
+    if not model:
+        raise HTTPException(status_code=404, detail="Модель не найдена")
+    # Проверяем доступность Plus-модели
+    if getattr(model, 'plus_only', False) and not getattr(user, 'is_plus', False):
+        raise HTTPException(status_code=403, detail="Модель доступна только для Plus пользователей")
+    # Обновляем модель у чата
+    chat.model_id = model_id
+    await db.commit()
+    await db.refresh(chat)
+    return {"detail": "Модель для чата обновлена", "chat_id": chat.id, "model_id": chat.model_id}
 
 def serialize_message(message: MessageOut) -> dict:
     """Преобразует сообщение в словарь с сериализованным datetime"""

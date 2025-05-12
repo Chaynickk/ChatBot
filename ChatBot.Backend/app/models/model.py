@@ -8,3 +8,5 @@ class Model(Base):
     name = Column(String, unique=True, nullable=False)
     provider = Column(String, nullable=False)
     is_public = Column(Boolean, default=True)
+    plus_only = Column(Boolean, default=False)
+    display_name = Column(String, nullable=True)

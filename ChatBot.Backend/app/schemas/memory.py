@@ -5,6 +5,9 @@ class MemoryCreate(BaseModel):
     user_id: int
     content: str
 
+class MemoryUpdate(BaseModel):
+    content: str
+
 class MemoryOut(MemoryCreate):
     id: int
     created_at: datetime

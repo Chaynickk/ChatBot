@@ -5,7 +5,16 @@ from app.schemas.chat import ChatCreate
 from typing import Optional
 
 async def create_chat(db: AsyncSession, chat: ChatCreate):
-    new_chat = Chat(**chat.model_dump())
+    data = chat.model_dump()
+    if not data.get('title'):
+        # Получаем количество чатов пользователя
+        result = await db.execute(
+            select(Chat).where(Chat.user_id == data['user_id'])
+        )
+        user_chats = result.scalars().all()
+        chat_number = len(user_chats) + 1
+        data['title'] = f'Новый чат {chat_number}'
+    new_chat = Chat(**data)
     db.add(new_chat)
     await db.commit()
     await db.refresh(new_chat)

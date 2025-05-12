@@ -14,15 +14,17 @@ async def create_message(db: AsyncSession, message: MessageCreate) -> Message:
 async def get_chat_messages(
     db: AsyncSession, 
     chat_id: int,
-    limit: int = 50,
-    before_id: Optional[int] = None
+    before_id: Optional[int] = None,
+    limit: int = 35
 ) -> List[Message]:
     query = select(Message).where(Message.chat_id == chat_id)
     
     if before_id:
         query = query.where(Message.id < before_id)
     
-    query = query.order_by(Message.id.desc()).limit(limit)
+    query = query.order_by(Message.id.desc())
+    if limit:
+        query = query.limit(limit)
     result = await db.execute(query)
     return result.scalars().all()
 

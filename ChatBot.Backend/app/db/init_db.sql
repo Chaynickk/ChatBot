@@ -31,7 +31,9 @@ CREATE TABLE models (
     id SERIAL PRIMARY KEY,
     name TEXT UNIQUE NOT NULL,
     provider TEXT NOT NULL,
-    is_public BOOLEAN DEFAULT TRUE
+    display_name TEXT NOT NULL,
+    is_public BOOLEAN DEFAULT TRUE,
+    plus_only BOOLEAN DEFAULT FALSE
 );
 
 -- === Таблица чатов ===

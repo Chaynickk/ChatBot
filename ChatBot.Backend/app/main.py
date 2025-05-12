@@ -10,7 +10,31 @@ import telebot
 import threading
 from dotenv import load_dotenv
 from fastapi.middleware.cors import CORSMiddleware
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+import asyncio
+from app.db.dependencies import get_async_session
+from app.routes.user import sync_plus_status
+from fastapi.responses import JSONResponse
+from fastapi.requests import Request
+from fastapi.exception_handlers import RequestValidationError
+from fastapi.exceptions import HTTPException
+import logging
+import sys
+
 load_dotenv()
+
+# Настраиваем логирование
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(sys.stdout),
+        logging.FileHandler('app.log')
+    ]
+)
+
+# Получаем логгер для этого модуля
+logger = logging.getLogger(__name__)
 
 # Получаем токен бота из переменных окружения
 BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
@@ -62,7 +86,16 @@ async def lifespan(app: FastAPI):
     bot_thread = threading.Thread(target=run_bot)
     bot_thread.daemon = True  # Поток завершится вместе с основной программой
     bot_thread.start()
-    
+
+    # Запускаем планировщик APScheduler
+    scheduler = AsyncIOScheduler()
+    async def scheduled_sync_plus_status():
+        async for db in get_async_session():
+            await sync_plus_status(db)
+            break
+    scheduler.add_job(scheduled_sync_plus_status, 'cron', hour=3, minute=0)
+    scheduler.start()
+
     yield
 
 app = FastAPI(lifespan=lifespan)
@@ -90,4 +123,20 @@ app.include_router(project_settings.router)
 @app.get("/ping")
 def ping():
     return {"message": "pong"}
+
+@app.exception_handler(HTTPException)
+async def custom_http_exception_handler(request: Request, exc: HTTPException):
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"detail": exc.detail},
+    )
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    logger.error(f"Validation error: {exc.errors()}")
+    # Не пытаемся читать тело запроса здесь
+    return JSONResponse(
+        status_code=422,
+        content={"detail": exc.errors()},
+    )
 

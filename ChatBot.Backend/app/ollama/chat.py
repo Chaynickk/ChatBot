@@ -1,41 +1,30 @@
-import requests
-from typing import AsyncGenerator, List, Dict
+import aiohttp
 import json
 
 OLLAMA_API_URL = "http://localhost:11434/api/generate"
 
-async def get_ollama_response(prompt: str) -> AsyncGenerator[str, None]:
-    """
-    Получает ответ от Ollama по чанкам.
-    
-    Args:
-        prompt: Строка с промптом для модели
-        
-    Yields:
-        str: Чанки ответа от модели
-    """
+async def get_ollama_response(prompt: str, model_name: str = "mistral"):
     try:
-        response = requests.post(
-            OLLAMA_API_URL,
-            json={
-                "model": "mistral",
-                "prompt": prompt,
-                "stream": True,
-                "options": {
-                    "stop": ["User:", "Assistant:"]
+        async with aiohttp.ClientSession() as session:
+            async with session.post(
+                OLLAMA_API_URL,
+                json={
+                    "model": model_name,
+                    "prompt": prompt,
+                    "stream": True,
+                    "options": {
+                        "stop": ["User:", "Assistant:"]
+                    }
                 }
-            },
-            stream=True
-        )
-        
-        for line in response.iter_lines():
-            if line:
-                try:
-                    chunk = json.loads(line.decode("utf-8"))
-                    if "response" in chunk:
-                        yield chunk["response"]
-                except Exception as e:
-                    yield f"[Ошибка парсинга: {str(e)}]"
-                    
+            ) as resp:
+                while True:
+                    line = await resp.content.readline()
+                    if not line:
+                        break
+                    try:
+                        # Отправляем строку как есть (один JSON-объект на строку)
+                        yield line.decode("utf-8").rstrip("\r\n") + "\n"
+                    except Exception as e:
+                        yield json.dumps({"response": f"[Ошибка парсинга: {str(e)}]"}) + "\n"
     except Exception as e:
-        yield f"[Ошибка запроса: {str(e)}]" 
+        yield json.dumps({"response": f"[Ошибка запроса: {str(e)}]"}) + "\n" 

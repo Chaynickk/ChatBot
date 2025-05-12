@@ -5,15 +5,22 @@ from app.db.dependencies import get_async_session
 from fastapi import APIRouter, Depends, Query, HTTPException
 from app.models.project import Project
 from sqlalchemy import select
+import logging
+import traceback
 
 router = APIRouter(prefix="/api", tags=["projects"])
 
 @router.post("/projects/", response_model=ProjectOut)
 async def register_project(project: ProjectCreate, db: AsyncSession = Depends(get_async_session)):
     try:
-        return await create_project(db, project)
+        logging.info(f"Попытка создать проект: {project}")
+        new_project = await create_project(db, project)
+        logging.info(f"Проект создан: {new_project}")
+        return new_project
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Ошибка при создании проекта: {e}")
+        logging.error(f"Ошибка при создании проекта: {str(e)}")
+        logging.error(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=f"Failed to create project: {str(e)}")
 
 @router.get("/projects/", response_model=list[ProjectOut])
 async def get_projects(
