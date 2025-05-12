@@ -1,7 +1,7 @@
 // import React from 'react';
 import { ChatScreen } from './components/ChatScreen';
 import { UserProvider, useUser } from './components/UserContext';
-import { ChatsProvider } from './components/ChatsContext';
+import { ChatsProvider, useChats } from './components/ChatsContext';
 import { MessagesProvider } from './components/MessagesContext';
 import { API_BASE_URL } from './services/api';
 import { useEffect, useState } from 'react';
@@ -38,12 +38,20 @@ export const App: React.FC = () => {
   const handleNotification = (notification: { type: 'success' | 'error'; message: string } | null) => {
     setNotification(notification);
     if (notification) {
-      setTimeout(() => setNotification(null), 3000);
+      setTimeout(() => setNotification(null), 2000); // Уменьшаем время до 2 секунд
+    }
+  };
+
+  // Функция для загрузки чатов
+  const loadChats = () => {
+    const chats = useChats();
+    if (chats.loadChats) {
+      chats.loadChats();
     }
   };
 
   return (
-    <UserProvider onNotification={handleNotification}>
+    <UserProvider onNotification={handleNotification} onChatsLoad={loadChats}>
       <ChatsProvider onNotification={handleNotification}>
         <MessagesProvider>
           <AppContent notification={notification} timerWidth={timerWidth} />

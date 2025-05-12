@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { useUser } from './UserContext';
 import { apiService, API_BASE_URL } from '../services/api';
 
@@ -36,6 +36,13 @@ export const ChatsProvider: React.FC<ChatsProviderProps> = ({ children, onNotifi
   const [chats, setChats] = useState<Chat[]>([]);
   const [activeChatId, setActiveChatId] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+
+  // Автоматическая загрузка чатов при монтировании
+  useEffect(() => {
+    if (user) {
+      loadChats();
+    }
+  }, [user]);
 
   const loadChats = async () => {
     if (!user || isLoading) return;

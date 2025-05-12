@@ -275,7 +275,7 @@ export const ChatScreen: React.FC = () => {
   const [wavesEnabled, setWavesEnabled] = useState(true);
   const [showSettingsMenu, setShowSettingsMenu] = useState(false);
   const { user, offlineMessage } = useUser();
-  const { chats, loadChats, selectChat, activeChatId } = useChats();
+  const { chats, selectChat, activeChatId } = useChats();
   const { messages, loadMessages, sendMessage, setMessages } = useMessages();
   const [hoveredMessageId, setHoveredMessageId] = useState<number | null>(null);
   const [replyTo, setReplyTo] = useState<any | null>(null);
@@ -332,12 +332,6 @@ export const ChatScreen: React.FC = () => {
       localStorage.setItem('selectedModelId', String(modelMap[selectedModel.name] || 1));
     }
   }, [selectedModel]);
-
-  useEffect(() => {
-    if (sidebarOpen) {
-      loadChats();
-    }
-  }, [sidebarOpen]);
 
   const handleCreateProject = async (name: string) => {
     try {

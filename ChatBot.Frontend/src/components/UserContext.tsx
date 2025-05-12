@@ -28,9 +28,10 @@ export const useUser = () => {
 interface UserProviderProps {
   children: ReactNode;
   onNotification: (notification: { type: 'success' | 'error'; message: string } | null) => void;
+  onChatsLoad?: () => void;
 }
 
-export const UserProvider: React.FC<UserProviderProps> = ({ children, onNotification }) => {
+export const UserProvider: React.FC<UserProviderProps> = ({ children, onNotification, onChatsLoad }) => {
   const [user, setUser] = useState<User | null>(null);
   const [initData, setInitData] = useState<string | null>(null);
   const [backendAvailable, setBackendAvailable] = useState(true);
@@ -89,6 +90,9 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children, onNotifica
           type: 'success',
           message: 'Авторизация успешно выполнена'
         });
+        if (onChatsLoad) {
+          setTimeout(onChatsLoad, 2000); // Задержка 2 секунды
+        }
         return;
       }
     } catch (error: any) {
@@ -114,6 +118,9 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children, onNotifica
               type: 'success',
               message: 'Регистрация успешно выполнена'
             });
+            if (onChatsLoad) {
+              setTimeout(onChatsLoad, 2000); // Задержка 2 секунды
+            }
             return;
           }
         } catch (regError: any) {
