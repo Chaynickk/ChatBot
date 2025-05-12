@@ -42,18 +42,19 @@ async def send_message(
     current_user: User = Depends(get_current_user)
 ):
     import json
+    logger.info("[send_message] Запрос на отправку сообщения")
     body_raw = await request.body()
     if not body_raw:
-        logger.error("[send_message] Empty request body")
+        logger.error("[send_message] Пустое тело запроса")
         raise HTTPException(status_code=400, detail="Empty request body")
         return
     try:
         body = json.loads(body_raw.decode("utf-8"))
     except Exception as e:
-        logger.error(f"[send_message] Error parsing JSON: {str(e)}")
+        logger.error(f"[send_message] Ошибка парсинга JSON: {str(e)}")
         raise HTTPException(status_code=400, detail="Invalid or empty JSON")
         return
-    logger.debug(f"[send_message] Request body: {body}")
+    logger.info(f"[send_message] Тело запроса: {body}")
     
     # Извлекаем параметры из JSON
     chat_id = body.get('chat_id')
@@ -62,9 +63,11 @@ async def send_message(
     files = body.get('files', [])
     
     if not chat_id:
+        logger.error("[send_message] Не указан chat_id")
         raise HTTPException(status_code=400, detail="chat_id is required")
         return
     if not content:
+        logger.error("[send_message] Не указан content")
         raise HTTPException(status_code=400, detail="content is required")
         return
         
@@ -73,9 +76,11 @@ async def send_message(
     chat = chat_query.scalar_one_or_none()
     
     if not chat:
+        logger.error(f"[send_message] Чат не найден: {chat_id}")
         raise HTTPException(status_code=404, detail="Chat not found")
         return
     if chat.user_id != current_user.telegram_id:
+        logger.error(f"[send_message] Нет доступа к чату: {chat_id}, user: {current_user.telegram_id}")
         raise HTTPException(status_code=403, detail="Not authorized to access this chat")
         return
     # Сохраняем сообщение пользователя
@@ -88,33 +93,41 @@ async def send_message(
     db.add(user_message)
     await db.commit()
     await db.refresh(user_message)
-    logger.debug(f"[send_message] Created user message: {user_message.id}")
+    logger.info(f"[send_message] Создано сообщение пользователя: {user_message.id}")
 
     prompt = await get_chat_prompt(db, current_user.telegram_id, chat_id, parent_id)
+    logger.info(f"[send_message] prompt для Ollama: {prompt}")
     model_name = "mistral"
 
     async def event_stream():
         full_response = ""
-        # Стримим чанки Ollama
-        async for chunk in get_ollama_response(prompt, model_name):
-            try:
-                data = json.loads(chunk)
-                if "response" in data:
-                    full_response += data["response"]
-                yield chunk  # Отправляем чанк во фронт
-            except Exception:
-                continue
-        # После стрима сохраняем сообщение ассистента
-        assistant_message = Message(
-            chat_id=chat_id,
-            content=full_response,
-            parent_id=user_message.id,
-            role="assistant"
-        )
-        db.add(assistant_message)
-        await db.commit()
-        await db.refresh(assistant_message)
-        logger.debug(f"[send_message] Created assistant message: {assistant_message.id}")
+        logger.info(f"[event_stream] prompt: {prompt}")
+        try:
+            async for chunk in get_ollama_response(prompt, model_name):
+                logger.info(f"[event_stream] chunk: {chunk}")
+                try:
+                    data = json.loads(chunk)
+                    if "response" in data:
+                        full_response += data["response"]
+                    yield chunk  # Отправляем чанк во фронт
+
+                    # Сохраняем ассистента, если это последний чанк
+                    if data.get("done", False):
+                        assistant_message = Message(
+                            chat_id=chat_id,
+                            content=full_response,
+                            parent_id=user_message.id,
+                            role="assistant"
+                        )
+                        db.add(assistant_message)
+                        await db.commit()
+                        await db.refresh(assistant_message)
+                        logger.info(f"[event_stream] Создано сообщение ассистента: {assistant_message.id}")
+                except Exception as e:
+                    logger.error(f"[event_stream] Ошибка парсинга chunk: {e}")
+                    continue
+        except Exception as e:
+            logger.error(f"[event_stream] Ошибка Ollama: {e}")
 
     return StreamingResponse(event_stream(), media_type="text/plain")
 
