@@ -1,10 +1,39 @@
-SQLAlchemy~=2.0.40
+# FastAPI и зависимости
 fastapi==0.104.1
-requests~=2.32.3
-pyTelegramBotAPI~=4.27.0
-pydantic==2.4.2
-pytest~=8.3.5
-httpx~=0.28.1
-dotenv~=0.9.9
-python-dotenv~=1.1.0
 uvicorn==0.24.0
+
+# SQLAlchemy (async и sync)
+SQLAlchemy==2.0.40
+asyncpg==0.29.0
+
+# Pydantic
+pydantic==2.4.2
+
+# Telegram Bot API
+pyTelegramBotAPI==4.27.0
+
+# HTTP-клиенты
+requests==2.32.3
+httpx==0.28.1
+aiohttp==3.9.5
+
+# Планировщик задач
+apscheduler==3.10.4
+
+# Работа с .env
+python-dotenv==1.0.1
+
+# Работа с docx, xlsx, pdf, csv
+python-docx==1.1.0
+pandas==2.2.2
+openpyxl==3.1.2
+pdfplumber==0.11.0
+
+# Тестирование
+pytest==8.2.1
+
+# Для CORS
+starlette==0.27.0
+
+# Для type hints (если используете)
+typing-extensions==4.11.0
