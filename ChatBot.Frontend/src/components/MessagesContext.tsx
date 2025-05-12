@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { useChats } from './ChatsContext';
 import { useUser } from './UserContext';
-import { apiService, API_BASE_URL } from '../services/api';
+import { apiService, API_BASE_URL, checkServerAvailability } from '../services/api';
 
 interface Message {
   id?: number;
@@ -45,7 +45,7 @@ export const MessagesProvider: React.FC<{ children: ReactNode }> = ({ children }
     if (!activeChatId) return;
     console.log('Загрузка сообщений для чата:', activeChatId);
     try {
-      const res = await fetch(`${API_BASE_URL}/api/messages/?chat_id=${activeChatId}`);
+      const res = await fetch(`${API_BASE_URL}/messages/?chat_id=${activeChatId}`);
       if (res.ok) {
         const data = await res.json();
         setMessages(data);
@@ -69,6 +69,18 @@ export const MessagesProvider: React.FC<{ children: ReactNode }> = ({ children }
     };
     setMessages(prev => [...prev, userMessage]);
 
+    // Добавляем сообщение с пульсирующей точкой
+    setMessages(prev => [
+      ...prev,
+      {
+        id: tempBotMsgId,
+        role: 'assistant',
+        content: '',
+        isThinking: true,
+        created_at: new Date().toISOString(),
+      }
+    ]);
+
     let chatId = activeChatId;
     if (!chatId) {
       try {
@@ -85,11 +97,12 @@ export const MessagesProvider: React.FC<{ children: ReactNode }> = ({ children }
         if (!chatId) throw new Error('Не удалось создать новый чат');
       } catch (e) {
         console.error('Ошибка создания чата:', e);
+        const errorMessage = e instanceof Error ? e.message : 'Неизвестная ошибка при создании чата';
         setMessages(prev => [
-          ...prev,
+          ...prev.filter(msg => msg.id !== tempBotMsgId), // Удаляем сообщение с пульсирующей точкой
           {
             role: 'assistant',
-            content: `Ошибка создания чата. Пожалуйста, убедитесь, что вы авторизованы в Telegram.`,
+            content: `Ошибка создания чата: ${errorMessage}. Пожалуйста, убедитесь, что вы авторизованы в Telegram.`,
             created_at: new Date().toISOString(),
             id: tempUserId + 2
           }
@@ -100,7 +113,7 @@ export const MessagesProvider: React.FC<{ children: ReactNode }> = ({ children }
 
     if (!chatId) {
       setMessages(prev => [
-        ...prev,
+        ...prev.filter(msg => msg.id !== tempBotMsgId), // Удаляем сообщение с пульсирующей точкой
         {
           role: 'assistant',
           content: 'Ошибка: не удалось получить chat_id для отправки сообщения.',
@@ -113,37 +126,109 @@ export const MessagesProvider: React.FC<{ children: ReactNode }> = ({ children }
 
     console.log('Отправка сообщения:', { chatId, content });
 
-    const formData = new FormData();
-    formData.append('chat_id', String(chatId));
-    formData.append('content', content);
-
     try {
+      // Проверяем доступность сервера
+      const isServerAvailable = await checkServerAvailability();
+      if (!isServerAvailable) {
+        throw new Error('Сервер недоступен. Пожалуйста, проверьте подключение к интернету.');
+      }
+
+      const requestBody = {
+        chat_id: Number(chatId),
+        content: content
+      };
+
+      console.log('Отправка запроса на:', `${API_BASE_URL}/messages/`);
+      console.log('Данные запроса:', requestBody);
+      
       const response = await fetch(`${API_BASE_URL}/messages/`, {
         method: 'POST',
-        body: formData,
         headers: {
+          'Content-Type': 'application/json',
           'Authorization': `Telegram ${user?.telegram_id}`
-        }
+        },
+        body: JSON.stringify(requestBody)
       });
+      
+      console.log('Статус ответа:', response.status, response.statusText);
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Ошибка ответа сервера:', {
+          status: response.status,
+          statusText: response.statusText,
+          errorText,
+          requestBody
+        });
+        throw new Error(`Ошибка сервера: ${response.status} ${response.statusText} - ${errorText}`);
+      }
+      
       if (!response.body) throw new Error('Нет потока данных');
+      
       const reader = response.body.getReader();
       const decoder = new TextDecoder('utf-8');
       let botText = '';
       let firstChunk = true;
       let done = false;
+      
+      // Добавляем отладочное сообщение
+      setMessages(prev => [
+        ...prev,
+        {
+          id: tempBotMsgId + 1,
+          role: 'system',
+          content: 'Начало получения ответа...',
+          created_at: new Date().toISOString(),
+        }
+      ]);
+      
       while (!done) {
         const { value, done: streamDone } = await reader.read();
         done = streamDone;
         const chunk = decoder.decode(value || new Uint8Array(), { stream: true });
+        
+        // Добавляем отладочное сообщение о получении чанка
+        setMessages(prev => [
+          ...prev,
+          {
+            id: Date.now(),
+            role: 'system',
+            content: `Получен чанк: ${chunk}`,
+            created_at: new Date().toISOString(),
+          }
+        ]);
+        
         const lines = chunk.split('\n');
         for (const line of lines) {
-          if (line.startsWith('data:')) {
+          if (line.trim()) {
             try {
-              const json = JSON.parse(line.slice(5));
-              if (json.type === 'chunk' && json.data) {
+              const json = JSON.parse(line);
+              
+              // Добавляем отладочное сообщение о распарсенном JSON
+              setMessages(prev => [
+                ...prev,
+                {
+                  id: Date.now(),
+                  role: 'system',
+                  content: `Распарсенный JSON: ${JSON.stringify(json)}`,
+                  created_at: new Date().toISOString(),
+                }
+              ]);
+              
+              if (json.response) {
                 if (firstChunk) {
-                  // Удаляем точку (isThinking) и создаём новое сообщение ассистента с первым текстом
-                  botText += json.data;
+                  botText = json.response;
+                  // Добавляем отладочное сообщение о первом чанке
+                  setMessages(prev => [
+                    ...prev,
+                    {
+                      id: Date.now(),
+                      role: 'system',
+                      content: 'Первый чанк получен, создаем новое сообщение',
+                      created_at: new Date().toISOString(),
+                    }
+                  ]);
+                  
                   setMessages(prev => [
                     ...prev.filter(msg => msg.id !== tempBotMsgId),
                     {
@@ -156,46 +241,81 @@ export const MessagesProvider: React.FC<{ children: ReactNode }> = ({ children }
                   ]);
                   firstChunk = false;
                 } else {
-                  botText += json.data;
+                  botText += json.response;
+                  // Добавляем отладочное сообщение о последующих чанках
+                  setMessages(prev => [
+                    ...prev,
+                    {
+                      id: Date.now(),
+                      role: 'system',
+                      content: `Добавлен чанк к сообщению: ${json.response}`,
+                      created_at: new Date().toISOString(),
+                    }
+                  ]);
+                  
                   setMessages(prev =>
                     prev.map(msg =>
                       msg.id === tempBotMsgId
-                        ? { ...msg, content: botText }
+                        ? { ...msg, content: botText, isThinking: false }
                         : msg
                     )
                   );
                 }
-              }
-              if (json.type === 'assistant_message' && json.data) {
-                // Финальное сообщение ассистента (можно обновить, если нужно)
-                setMessages(prev =>
-                  prev.map(msg =>
-                    msg.id === tempBotMsgId
-                      ? { ...msg, content: json.data.content, isThinking: false }
-                      : msg
-                  )
-                );
+              } else {
+                // Добавляем сообщение о чанке без поля response
+                setMessages(prev => [
+                  ...prev,
+                  {
+                    id: Date.now(),
+                    role: 'system',
+                    content: `Получен чанк без поля response: ${JSON.stringify(json)}`,
+                    created_at: new Date().toISOString(),
+                  }
+                ]);
               }
             } catch (e) {
-              // ignore parse errors
+              setMessages(prev => [
+                ...prev,
+                {
+                  id: Date.now(),
+                  role: 'system',
+                  content: `Ошибка парсинга JSON: ${line}`,
+                  created_at: new Date().toISOString(),
+                }
+              ]);
             }
           }
         }
       }
-      // На всякий случай убираем isThinking
-      setMessages(prev =>
-        prev.map(msg =>
+      
+      // Финальное обновление сообщения
+      setMessages(prev => {
+        const updated = prev.map(msg =>
           msg.id === tempBotMsgId
-            ? { ...msg, isThinking: false }
+            ? { ...msg, content: botText, isThinking: false }
             : msg
-        )
-      );
+        );
+        
+        // Добавляем сообщение о завершении
+        if (botText) {
+          updated.push({
+            id: Date.now(),
+            role: 'system',
+            content: 'Ответ получен полностью',
+            created_at: new Date().toISOString(),
+          });
+        }
+        
+        return updated;
+      });
     } catch (e) {
+      console.error('Полная ошибка при отправке сообщения:', e);
+      const errorMessage = e instanceof Error ? e.message : 'Неизвестная ошибка';
       setMessages(prev => [
-        ...prev,
+        ...prev.filter(msg => msg.id !== tempBotMsgId),
         {
           role: 'assistant',
-          content: 'Извините, произошла ошибка при отправке сообщения. Пожалуйста, попробуйте еще раз.',
+          content: `Извините, произошла ошибка при отправке сообщения: ${errorMessage}. Пожалуйста, попробуйте еще раз.`,
           created_at: new Date().toISOString(),
           id: tempUserId + 4
         }

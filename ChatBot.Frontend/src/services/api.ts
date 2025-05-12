@@ -12,6 +12,17 @@ export const API_BASE_URL = 'https://albert-engineers-vegas-per.trycloudflare.co
 
 console.log('API_BASE_URL (api.ts):', API_BASE_URL);
 
+// Функция для проверки доступности сервера
+export const checkServerAvailability = async () => {
+    try {
+        const response = await fetch(`${API_BASE_URL}/ping`);
+        return response.ok;
+    } catch (error) {
+        console.error('Ошибка при проверке доступности сервера:', error);
+        return false;
+    }
+};
+
 export interface ChatResponse {
     response: string;
 }
@@ -131,7 +142,7 @@ export const apiService = {
     },
 
     async createProject(name: string, user_id: number = 0): Promise<ProjectResponse> {
-        const url = `${API_BASE_URL}/projects/`;
+        const url = `${API_BASE_URL}/api/projects/`;
         try {
             const res = await fetch(url, {
                 method: 'POST',
@@ -173,7 +184,7 @@ export const apiService = {
         parent_chat_id?: number | null,
         parent_message_id?: number | null
     }) {
-        const url = `${API_BASE_URL}/chats/`;
+        const url = `${API_BASE_URL}/api/chats/`;
         const body = {
             user_id,
             project_id,
@@ -188,6 +199,7 @@ export const apiService = {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
+                'Authorization': `Telegram ${user_id}`
             },
             body: JSON.stringify(body),
         });
@@ -202,7 +214,7 @@ export const apiService = {
     },
 
     async createUser(telegram_id: string): Promise<UserResponse> {
-        const url = `${API_BASE_URL}/users/`;
+        const url = `${API_BASE_URL}/users/users/`;
         try {
             const res = await fetch(url, {
                 method: 'POST',
@@ -273,7 +285,7 @@ export const apiService = {
     },
 
     async getLastChatIdByTelegramId(telegram_id: number): Promise<number | null> {
-        const res = await fetch(`${API_BASE_URL}/chats/?telegram_id=${telegram_id}`);
+        const res = await fetch(`${API_BASE_URL}/api/chats/?telegram_id=${telegram_id}`);
         if (!res.ok) return null;
         const data = await res.json();
         if (Array.isArray(data) && data.length > 0) {
