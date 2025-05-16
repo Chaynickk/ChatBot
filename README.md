@@ -1,5 +1,6 @@
 Простите за грязь в файлах, мы боимся удалять так как что то может сломатся
 
+видео работы - https://drive.google.com/file/d/1I9xBc8gtW6YGOu9X1OvSkbmpYqRls43l/view?usp=sharing
 
 # ChatBot Backend
 
